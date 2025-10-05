@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CoC 探索者カードメーカー（画像即時プレビュー・安定版）</title>
+<title>CoC 探索者カードメーカー（共有URL対応）</title>
 <style>
   :root{--bg:#f6f7fb;--panel:#fff;--ink:#17181c;--muted:#6b7280;--line:#e6e7ee;--accent:#4f46e5;--accent-ink:#fff;--soft:#f3f4f6;--danger:#ef4444;--radius:16px}
   *{box-sizing:border-box} html,body{height:100%}
@@ -39,20 +39,8 @@
   .thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
   .thumb.contain img{object-fit:contain;background:#eef0f5}
 
-  .tools{
-    position:absolute;display:flex;gap:6px;z-index:20;pointer-events:auto;
-    background:color-mix(in oklab,#fff 85%,transparent);
-    backdrop-filter:blur(6px);
-    border:1px solid var(--line);
-    border-radius:999px;
-    padding:4px;
-    box-shadow:0 6px 16px rgba(0,0,0,.12);
-  }
-  .pos-tr{top:8px;right:8px}
-  .pos-br{bottom:8px;right:8px}
-  .pos-tl{top:8px;left:8px}
-  .pos-bl{bottom:8px;left:8px}
-
+  .tools{position:absolute;display:flex;gap:6px;z-index:20;pointer-events:auto;background:color-mix(in oklab,#fff 85%,transparent);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:0 6px 16px rgba(0,0,0,.12)}
+  .pos-tr{top:8px;right:8px}.pos-br{bottom:8px;right:8px}.pos-tl{top:8px;left:8px}.pos-bl{bottom:8px;left:8px}
   .iconbtn{width:36px;height:36px;border-radius:999px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;cursor:pointer}
   .iconbtn:hover{background:var(--soft)}
 
@@ -80,129 +68,146 @@
   .preview{background:#eef0f5;border:1px solid var(--line);border-radius:14px;overflow:hidden;aspect-ratio:4/5;display:grid;place-items:center}
   .preview img{width:100%;height:100%;object-fit:cover} .preview.contain img{object-fit:contain;background:#eef0f5}
 
-  .stats-grid{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}
-  @media(min-width:560px){.stats-grid{grid-template-columns:repeat(3,1fr)}}
-  .stat-item{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center}
-  .skill-item{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;display:grid;grid-template-columns:1fr 120px 34px;gap:8px;align-items:center}
-  .table-like{display:grid;gap:12px}
-  .swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
-  .swatch{width:28px;height:28px;border-radius:999px;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer}
-  .swatch.sel{outline:3px solid #1113}
-  .color-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .sharewrap{max-width:1100px;margin:0 auto;padding:16px}
+  .sharegrid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+  .avatar{width:120px;height:120px;border-radius:999px;border:4px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.12);background:#eee;overflow:hidden;margin:0 auto}
+  .avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  .center{display:flex;gap:10px;align-items:center;justify-content:center;margin:16px 0;flex-wrap:wrap}
+  .pills{display:flex;gap:8px;flex-wrap:wrap}
+  .muted{color:#6b7280;font-size:12px}
 </style>
 </head>
 <body>
-<header>
-  <div class="wrap row">
-    <h1>CoC 探索者カードメーカー</h1>
-    <input id="q" class="search" type="text" placeholder="名前・技能・メモで検索" />
-    <label class="switch"><input id="secretToggle" type="checkbox" checked /><span>秘匿モード</span></label>
-    <label class="switch"><input id="fitToggle" type="checkbox" checked /><span>サムネ収める</span></label>
-    <button class="btn" id="shareListBtn" title="閲覧専用の一覧URLを表示">共有URL（一覧）</button>
-    <label class="switch" title="カード上のボタン位置">
-      <span>ボタン位置</span>
-      <select id="toolPosSel">
-        <option value="br">右下（推奨）</option>
-        <option value="tr">右上</option>
-        <option value="tl">左上</option>
-        <option value="bl">左下</option>
-      </select>
-    </label>
-    <button class="btn" id="addBtn">探索者を作る</button>
-    <button class="btn" id="exportBtn">JSONに書き出し</button>
-    <label class="btn ghost" for="importInput">JSON読込</label>
-    <input id="importInput" class="invis" type="file" accept="application/json" />
-    <button class="btn ghost" id="compactBtn">ストレージの最適化</button>
-  </div>
-</header>
+  <header>
+    <div class="wrap row">
+      <h1>CoC 探索者カードメーカー</h1>
+      <input id="q" class="search" type="text" placeholder="名前・技能・メモで検索" />
+      <label class="switch"><input id="secretToggle" type="checkbox" checked /><span>秘匿モード</span></label>
+      <label class="switch"><input id="fitToggle" type="checkbox" checked /><span>サムネ収める</span></label>
 
-<main class="wrap">
-  <section id="list" class="grid" aria-live="polite"></section>
-  <div id="urlBox" class="mono invis"></div>
-</main>
+      <!-- 共有：従来（自分のローカルを見る） -->
+      <button class="btn" id="shareListBtn">共有URL（一覧）</button>
 
-<!-- 編集モーダル -->
-<dialog id="editDlg" aria-labelledby="editTitle">
-  <div class="modal-head" id="editTitle">探索者の編集</div>
-  <div class="modal-body">
-    <div class="cols">
-      <div class="rows">
-        <div class="preview" id="editPreview"><span class="small">画像プレビュー</span></div>
-        <label class="btn" for="imageInput">画像を選ぶ</label>
-        <input id="imageInput" class="invis" type="file" accept="image/*" />
-        <div><label class="small" for="name">名前</label><input id="name" type="text" placeholder="探索者の名前" /></div>
-        <div class="table-like">
-          <div><label class="small" for="gender">性別</label><input id="gender" type="text" placeholder="例: 男性" /></div>
-          <div><label class="small" for="speech">口調</label><input id="speech" type="text" placeholder="例: 〜だよ／〜だね" /></div>
-          <div><label class="small" for="firstPerson">一人称</label><input id="firstPerson" type="text" placeholder="例: 私／俺" /></div>
-          <div><label class="small" for="secondPerson">二人称</label><input id="secondPerson" type="text" placeholder="例: 君／あなた" /></div>
-        </div>
-        <div>
-          <div class="small" style="margin-bottom:6px">イメージカラー（任意）</div>
-          <div id="colorSwatches" class="swatches" aria-label="プリセットカラー"></div>
-          <div class="color-row" style="margin-top:8px">
-            <input id="colorPicker" type="color" value="#000000" title="カスタム色" />
-            <button id="clearColor" class="btn ghost" type="button">選択なしに戻す</button>
+      <!-- 共有用データ書き出し（同じ内容を他者に見せたい用） -->
+      <button class="btn" id="exportShareBtn" title="公開用のJSON（画像含む）を書き出し">共有データ書き出し(JSON)</button>
+
+      <!-- ボタン位置（既存機能） -->
+      <label class="switch" title="カード上のボタン位置">
+        <span>ボタン位置</span>
+        <select id="toolPosSel">
+          <option value="br">右下（推奨）</option>
+          <option value="tr">右上</option>
+          <option value="tl">左上</option>
+          <option value="bl">左下</option>
+        </select>
+      </label>
+
+      <button class="btn" id="addBtn">探索者を作る</button>
+      <button class="btn" id="exportBtn">JSONに書き出し</button>
+      <label class="btn ghost" for="importInput">JSON読込</label>
+      <input id="importInput" class="invis" type="file" accept="application/json" />
+      <button class="btn ghost" id="compactBtn">ストレージの最適化</button>
+    </div>
+  </header>
+
+  <main id="appMain" class="wrap">
+    <section id="list" class="grid" aria-live="polite"></section>
+    <div id="urlBox" class="mono invis"></div>
+  </main>
+
+  <!-- 共有用一覧（読み取り専用モードで使用） -->
+  <main id="shareMain" class="sharewrap invis">
+    <div class="center">
+      <button class="btn" id="shareCopyThisPage">このページのURLをコピー</button>
+      <span id="shareInfo" class="muted"></span>
+    </div>
+    <section id="shareGrid" class="sharegrid"></section>
+    <div class="center">
+      <div class="pills">
+        <button class="btn" id="sharePrev">← 前のページ</button>
+        <button class="btn" id="shareNext">次のページ →</button>
+      </div>
+      <div class="muted" id="sharePagerText"></div>
+    </div>
+  </main>
+
+  <!-- 編集ダイアログ -->
+  <dialog id="editDlg" aria-labelledby="editTitle">
+    <div class="modal-head" id="editTitle">探索者の編集</div>
+    <div class="modal-body">
+      <div class="cols">
+        <div class="rows">
+          <div class="preview" id="editPreview"><span class="small">画像プレビュー</span></div>
+          <label class="btn" for="imageInput">画像を選ぶ</label>
+          <input id="imageInput" class="invis" type="file" accept="image/*" />
+          <div><label class="small" for="name">名前</label><input id="name" type="text" placeholder="探索者の名前" /></div>
+          <div class="table-like">
+            <div><label class="small" for="gender">性別</label><input id="gender" type="text" placeholder="例: 男性" /></div>
+            <div><label class="small" for="speech">口調</label><input id="speech" type="text" placeholder="例: 〜だよ／〜だね" /></div>
+            <div><label class="small" for="firstPerson">一人称</label><input id="firstPerson" type="text" placeholder="例: 私／俺" /></div>
+            <div><label class="small" for="secondPerson">二人称</label><input id="secondPerson" type="text" placeholder="例: 君／あなた" /></div>
           </div>
-          <div class="small">※ 選択なしの場合は従来の配色で表示します</div>
         </div>
-      </div>
-      <div>
-        <div class="row" style="gap:8px; margin-bottom:10px">
-          <button class="btn" type="button" data-tab="stats">ステータス</button>
-          <button class="btn" type="button" data-tab="skills">代表技能</button>
-          <button class="btn" type="button" data-tab="notes">メモ</button>
-          <span class="small">（クリックで切替）</span>
-        </div>
-        <section id="tabStats"><div class="stats-grid" id="statsGrid"></div></section>
-        <section id="tabSkills" hidden><div id="skillsWrap" class="rows"></div><button class="btn" id="addSkillBtn" type="button">＋ 行を追加</button></section>
-        <section id="tabNotes" hidden><label class="small" for="notes">メモ</label><textarea id="notes" placeholder="背景・性格・RPメモなど"></textarea></section>
-      </div>
-    </div>
-  </div>
-  <div class="modal-foot"><button class="btn ghost" id="cancelEdit" type="button">キャンセル</button><button class="btn primary" id="saveEdit" type="button">保存</button></div>
-</dialog>
-
-<!-- プロフィールモーダル -->
-<dialog id="viewDlg" aria-labelledby="viewTitle">
-  <div class="modal-head" id="viewHeader">
-    <span id="viewTitle">探索者プロフィール</span>
-    <button class="btn ghost" id="shareOneBtn" type="button" title="この探索者の閲覧URLを表示">🔗 共有URL（この探索者）</button>
-  </div>
-  <div class="modal-body">
-    <div class="cols">
-      <div class="rows">
-        <div class="preview" id="viewPreview"></div>
         <div>
-          <div id="viewName" style="font-size:20px; font-weight:800"></div>
-          <div class="small" id="viewMeta"></div>
-          <div style="margin-top:6px" id="viewPronouns"></div>
+          <div class="row" style="gap:8px; margin-bottom:10px">
+            <button class="btn" type="button" data-tab="stats">ステータス</button>
+            <button class="btn" type="button" data-tab="skills">代表技能</button>
+            <button class="btn" type="button" data-tab="notes">メモ</button>
+            <span class="small">（クリックで切替）</span>
+          </div>
+          <section id="tabStats"><div class="stats-grid" id="statsGrid"></div></section>
+          <section id="tabSkills" hidden><div id="skillsWrap" class="rows"></div><button class="btn" id="addSkillBtn" type="button">＋ 行を追加</button></section>
+          <section id="tabNotes" hidden><label class="small" for="notes">メモ</label><textarea id="notes" placeholder="背景・性格・RPメモなど"></textarea></section>
         </div>
-      </div>
-      <div>
-        <div class="row" style="gap:8px; margin-bottom:10px">
-          <button class="btn" type="button" data-vtab="v-profile">プロフィール</button>
-          <button class="btn" type="button" data-vtab="v-stats">ステータス</button>
-          <button class="btn" type="button" data-vtab="v-skills">技能</button>
-        </div>
-        <section id="vProfile"></section>
-        <section id="vStats" hidden class="stats-grid"></section>
-        <section id="vSkills" hidden class="rows"></section>
       </div>
     </div>
-  </div>
-  <div class="modal-foot">
-    <button class="btn" id="editFromView" type="button">編集</button>
-    <button class="btn primary" id="closeView" type="button">閉じる</button>
-  </div>
-</dialog>
+    <div class="modal-foot"><button class="btn ghost" id="cancelEdit" type="button">キャンセル</button><button class="btn primary" id="saveEdit" type="button">保存</button></div>
+  </dialog>
+
+  <!-- プロフィール（閲覧） -->
+  <dialog id="viewDlg" aria-labelledby="viewTitle">
+    <div class="modal-head" id="viewHeader">
+      <span id="viewTitle">探索者プロフィール</span>
+      <button class="btn ghost" id="shareOneBtn" type="button" title="この探索者の閲覧URLを表示">🔗 共有URL（この探索者）</button>
+    </div>
+    <div class="modal-body">
+      <div class="cols">
+        <div class="rows">
+          <div class="preview" id="viewPreview"></div>
+          <div>
+            <div id="viewName" style="font-size:20px; font-weight:800"></div>
+            <div class="small" id="viewMeta"></div>
+            <div style="margin-top:6px" id="viewPronouns"></div>
+          </div>
+        </div>
+        <div>
+          <div class="row" style="gap:8px; margin-bottom:10px">
+            <button class="btn" type="button" data-vtab="v-profile">プロフィール</button>
+            <button class="btn" type="button" data-vtab="v-stats">ステータス</button>
+            <button class="btn" type="button" data-vtab="v-skills">技能</button>
+          </div>
+          <section id="vProfile"></section>
+          <section id="vStats" hidden class="stats-grid"></section>
+          <section id="vSkills" hidden class="rows"></section>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="editFromView" type="button">編集</button>
+      <button class="btn primary" id="closeView" type="button">閉じる</button>
+    </div>
+  </dialog>
 
 <script>
 (() => {
-  /* GitHub Pages base for share URL */
-  const PAGES_BASE = "https://tukimi.github.io";
+  /* ===== 共有URLのベース（今いる場所から自動算出） ===== */
+  const PAGES_BASE = (() => {
+    const { origin, pathname } = location;
+    const base = pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
+    return origin + base;
+  })();
 
-  /* Storage & IndexedDB */
+  /* ====== ストレージ & IndexedDB（省略なく） ====== */
   const STORAGE_KEYS=["coc-investigators-html-v3","coc-investigators-html-v2","coc-investigators-html-v1","coc-investigators-v1"];
   const CURRENT_KEY=STORAGE_KEYS[0];
   const DB_NAME="cocCardsDB", DB_VERSION=1, STORE="images";
@@ -212,74 +217,77 @@
     req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); return dbPromise; }
   async function idbSet(key,blob){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,"readwrite"); tx.objectStore(STORE).put(blob,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
   async function idbGet(key){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,"readonly"); const rq=tx.objectStore(STORE).get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); }); }
-  async function idbDelete(key){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,"readwrite"); tx.objectStore(STORE).delete(key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
 
-  /* Utils */
+  /* ====== ユーティリティ ====== */
   const $=sel=>document.querySelector(sel);
   const el=(tag,props={},...kids)=>{ const n=document.createElement(tag); Object.entries(props).forEach(([k,v])=>{
     if(k==="class") n.className=v; else if(k==="html") n.innerHTML=v;
     else if(k.startsWith("on") && typeof v==="function") n.addEventListener(k.slice(2),v);
     else if(v!==undefined) n.setAttribute(k,v); }); kids.forEach(k=>n.append(k)); return n; };
   const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
-  const hexToRgb=hex=>{ if(!hex) return null; const s=hex.replace('#',''); const v=s.length===3? s.split('').map(x=>x+x).join(''):s; const num=parseInt(v,16); return {r:(num>>16)&255,g:(num>>8)&255,b:num&255}; };
-  const rgba=(hex,a)=>{ const c=hexToRgb(hex); if(!c) return null; return `rgba(${c.r},${c.g},${c.b},${a})`; };
-  const PRESET_COLORS=["#EF4444","#F59E0B","#10B981","#22C55E","#06B6D4","#3B82F6","#6366F1","#A855F7","#EC4899","#F97316","#84CC16","#14B8A6"];
-  const DEFAULT_STATS=[{key:"STR",label:"STR"},{key:"CON",label:"CON"},{key:"POW",label:"POW"},{key:"DEX",label:"DEX"},{key:"APP",label:"APP"},{key:"SIZ",label:"SIZ"},{key:"INT",label:"INT"},{key:"EDU",label:"EDU"},{key:"HP",label:"HP"},{key:"MP",label:"MP"},{key:"SAN",label:"SAN"}];
+  const escapeHtml=s=>(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;","\"":"&quot;","'":"&#39;"}[m]));
 
-  const sample=()=>({id:uid(),name:"サンプル探索者",gender:"男性",firstPerson:"俺",secondPerson:"あなた",speech:"〜だよ／〜だね",imageKey:"",color:"",notes:"ここにメモ。",stats:DEFAULT_STATS.map(s=>({...s,value:"",secret:false})),skills:[{name:"目星",value:"70"}],createdAt:Date.now(),updatedAt:Date.now()});
-  function escapeHtml(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;","\"":"&quot;","'":"&#39;"}[m]))}
-
-  /* State */
+  /* ====== アプリデータ ====== */
+  const DEFAULT_STATS=["STR","CON","POW","DEX","APP","SIZ","INT","EDU","HP","MP","SAN"].map(k=>({key:k,label:k}));
+  const sample=()=>({id:uid(),name:"サンプル探索者",gender:"",firstPerson:"",secondPerson:"",speech:"",imageKey:"",color:"",notes:"",stats:DEFAULT_STATS.map(s=>({...s,value:"",secret:false})),skills:[],createdAt:Date.now(),updatedAt:Date.now()});
   let list=[],secretMode=true,fitContain=true,viewing=null,editing=null;
-  let isViewOpen=false,currentVTab="v-profile",readOnly=false;
+  let readOnly=false,isViewOpen=false,currentVTab="v-profile";
   const TOOL_POS_KEY="coc_cards_toolpos_v1";
 
-  /* 一覧用URLの解放マップ */
-  const listObjectURLs=new Map();
-  function revokeListURLs(){ for(const u of listObjectURLs.values()) URL.revokeObjectURL(u); listObjectURLs.clear(); }
+  /* ====== 共有データ（他人にも同じ内容を見せる） ====== */
+  // フェッチして使う読み取り専用データ
+  let shareData=null; // {people:[{id,name,imageData,color,notes,skills,stats}], updatedAt:number}
 
-  /* 編集/閲覧プレビュー用のURL保持 */
-  let editPreviewURL=null;
-  let viewPreviewURL=null;
+  // 共有モード：一覧/詳細のURLを生成
+  const buildShareListURL = ({src, p, n}) => `${PAGES_BASE}/#/s/list?p=${p||1}&n=${n||20}&src=${encodeURIComponent(src)}`;
+  const buildShareViewURL = ({src, id}) => `${PAGES_BASE}/#/s/view/${encodeURIComponent(id)}?src=${encodeURIComponent(src)}`;
+  // 従来（ローカルを見るだけ）の一覧URL
+  const buildLocalListURL = () => `${PAGES_BASE}/#/list`;
 
-  /* Load / Save / Migrate */
+  // ハッシュのクエリ取得（#/s/list?p=1&n=20&src=... 形式）
+  function parseHashQuery(){
+    const h = location.hash || "";
+    const [route, q] = h.split("?");
+    const params = new URLSearchParams(q||"");
+    return { route, params };
+  }
+
+  /* ====== 読み込み・保存 ====== */
   function readKey(key){ try{const raw=localStorage.getItem(key); if(!raw) return null; const data=JSON.parse(raw); return Array.isArray(data)?data:null;}catch{return null;} }
-  function normalizeEntry(v){ v=v||{}; v.id||=uid(); v.name||=""; v.gender||=""; v.firstPerson||=""; v.secondPerson||=""; v.speech||=""; v.color||=""; v.notes||="";
-    v.imageKey=v.imageKey||""; if(v.image && typeof v.image==="string" && v.image.startsWith("data:image/")) v._legacyDataUrl=v.image; v.image=undefined;
-    const byKey=Object.fromEntries((v.stats||[]).map(s=>[(s.key||s.label),s])); v.stats=DEFAULT_STATS.map(s=>({key:s.key,label:s.label,value:(byKey[s.key]?.value??""),secret:!!byKey[s.key]?.secret}));
+  function normalizeEntry(v){
+    v=v||{}; v.id||=uid(); v.name||=""; v.gender||=""; v.firstPerson||=""; v.secondPerson||=""; v.speech||=""; v.color||=""; v.notes||="";
+    v.imageKey=v.imageKey||"";
+    const byKey=Object.fromEntries((v.stats||[]).map(s=>[(s.key||s.label),s]));
+    v.stats=DEFAULT_STATS.map(s=>({key:s.key,label:s.label,value:(byKey[s.key]?.value??""),secret:!!byKey[s.key]?.secret}));
     v.skills=Array.isArray(v.skills)? v.skills.map(s=>({name:s.name||"",value:s.value||""})):[];
-    v.createdAt||=Date.now(); v.updatedAt||=Date.now(); return v; }
-  function dataURLToBlob(dataURL){ const [h,b64]=dataURL.split(","); const mime=h.match(/data:(.*?);base64/)[1]||"image/png"; const bin=atob(b64); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return new Blob([u8],{type:mime}); }
-  async function migrateImagesIfNeeded(items){ for(const it of items){ if(it._legacyDataUrl){ const key="img:"+it.id; await idbSet(key, dataURLToBlob(it._legacyDataUrl)); it.imageKey=key; delete it._legacyDataUrl; } } }
-
+    v.createdAt||=Date.now(); v.updatedAt||=Date.now(); return v;
+  }
   async function load(){
-    let found=null,used=null;
-    for(const k of STORAGE_KEYS){ const cand=readKey(k); if(cand && cand.length){ found=cand; used=k; break; } }
-    if(!found){ list=[sample()]; localStorage.setItem(CURRENT_KEY, JSON.stringify(list)); return; }
-    list=found.map(normalizeEntry); await migrateImagesIfNeeded(list);
-    if(used!==CURRENT_KEY){ localStorage.setItem(CURRENT_KEY, JSON.stringify(list)); }
+    let found=null;
+    for(const k of STORAGE_KEYS){ const cand=readKey(k); if(cand && cand.length){ found=cand; break; } }
+    list = found ? found.map(normalizeEntry) : [sample()];
   }
   function save(){ if(!readOnly) localStorage.setItem(CURRENT_KEY, JSON.stringify(list)); }
 
-  /* Share URL */
-  const buildListURL = () => `${PAGES_BASE}/#/list`;
-  const buildProfileURL = (id) => `${PAGES_BASE}/#/view/${encodeURIComponent(id)}`;
-  function showURL(url){ const box=$("#urlBox"); box.textContent=url; box.classList.remove("invis"); navigator.clipboard?.writeText(url).catch(()=>{}); setTimeout(()=>box.classList.add("invis"),8000); }
-
-  /* Tool position */
+  /* ====== 一覧（通常モード） ====== */
+  const listBox=$("#list");
+  const toolSel=$("#toolPosSel");
   function getToolPos(){ return localStorage.getItem(TOOL_POS_KEY) || "br"; }
   function setToolPos(v){ localStorage.setItem(TOOL_POS_KEY, v); }
   function toolsPosClass(v){ return v==="tr"?"pos-tr":v==="tl"?"pos-tl":v==="bl"?"pos-bl":"pos-br"; }
 
-  /* List render */
-  const listBox=$("#list");
-
   async function renderList(){
-    const q=$("#q").value.trim().toLowerCase(); listBox.innerHTML=""; revokeListURLs();
-    const filtered=!q? list : list.filter(v=>{ const blob=[v.name,v.gender,v.firstPerson,v.secondPerson,v.speech,v.notes,...(v.skills||[]).map(s=>`${s.name}:${s.value}`)].filter(Boolean).join("\n").toLowerCase(); return blob.includes(q); });
-    if(!filtered.length){ listBox.append(el("div",{class:"small",html:"該当する探索者がいません。右上の「探索者を作る」から登録できます。"})); return; }
-
-    const tpos = getToolPos();
+    $("#appMain").classList.remove("invis"); $("#shareMain").classList.add("invis");
+    const q=$("#q").value.trim().toLowerCase(); listBox.innerHTML="";
+    const filtered=!q? list : list.filter(v=>{
+      const blob=[v.name,v.gender,v.firstPerson,v.secondPerson,v.speech,v.notes,...(v.skills||[]).map(s=>`${s.name}:${s.value}`)].filter(Boolean).join("\n").toLowerCase();
+      return blob.includes(q);
+    });
+    if(!filtered.length){
+      listBox.append(el("div",{class:"small",html:"該当する探索者がいません。右上の「探索者を作る」から登録できます。"}));
+      return;
+    }
+    const tpos=getToolPos();
     for(const item of filtered){
       const card=el("article",{class:"card"});
       const bar=el("div",{class:"accent-bar"}); if(item.color) bar.style.background=item.color; card.append(bar);
@@ -288,30 +296,27 @@
       th.addEventListener("click",(ev)=>{ if(ev.target.closest(".tools")) return; openView(item.id); });
 
       const img=el("img",{alt:item.name||"preview"});
-      if(item.imageKey){
-        try{
-          const blob=await idbGet(item.imageKey);
-          if(blob){ const url=URL.createObjectURL(blob); listObjectURLs.set(item.imageKey,url); img.src=url; }
-        }catch(e){ console.error("IDB get failed", e); }
-      }
+      if(item.imageKey){ const blob=await idbGet(item.imageKey); if(blob){ img.src=URL.createObjectURL(blob); } }
       th.append(item.imageKey? img : el("div",{class:"small",html:"画像なし"}));
 
       const tools=el("div",{class:`tools ${toolsPosClass(tpos)}`});
       tools.append(iconBtn("👁","プロフィール",(e)=>{e.preventDefault();e.stopPropagation();openView(item.id)}));
-      tools.append(iconBtn("🔗","共有URL",(e)=>{e.preventDefault();e.stopPropagation();showURL(buildProfileURL(item.id));}));
-      if(!readOnly){
-        tools.append(iconBtn("✏️","編集",(e)=>{e.preventDefault();e.stopPropagation();openEdit(item.id)}));
-        tools.append(iconBtn("🗑","削除",(e)=>{e.preventDefault();e.stopPropagation();delItem(item.id)}));
-      }
+      tools.append(iconBtn("🔗","共有URL",(e)=>{e.preventDefault();e.stopPropagation();showURL(buildLocalListURL());}));
+      tools.append(iconBtn("✏️","編集",(e)=>{e.preventDefault();e.stopPropagation();openEdit(item.id)}));
+      tools.append(iconBtn("🗑","削除",(e)=>{e.preventDefault();e.stopPropagation();delItem(item.id)}));
       th.append(tools);
 
       const body=el("div",{class:"body"});
       const title=el("div",{class:"title"}); const dot=el("span",{class:"dot"});
-      if(item.color){ dot.style.background=item.color; dot.style.borderColor=rgba(item.color,.6); title.style.color=item.color; }
+      if(item.color){ dot.style.background=item.color; dot.style.borderColor="#0002"; title.style.color=item.color; }
       title.append(dot, document.createTextNode(item.name||"(無名の探索者)")); body.append(title);
+
       const meta=[item.gender,item.firstPerson?`一人称:${item.firstPerson}`:"",item.secondPerson?`二人称:${item.secondPerson}`:""].filter(Boolean).join(" ・ ");
       body.append(el("div",{class:"meta",html:meta}));
-      const badges=el("div",{class:"badges"}); (item.skills||[]).filter(s=>s.name).slice(0,4).forEach(s=>badges.append(el("span",{class:"chip",html:`${s.name}${s.value?` ${s.value}`:""}`}))); body.append(badges);
+
+      const badges=el("div",{class:"badges"});
+      (item.skills||[]).filter(s=>s.name).slice(0,4).forEach(s=>badges.append(el("span",{class:"chip",html:`${s.name}${s.value?` ${s.value}`:""}`})));
+      body.append(badges);
 
       const statgrid=el("div",{class:"statgrid"});
       (item.stats||[]).forEach(st=>statgrid.append(el("div",{class:"statbox",html:`<span>${st.label}</span>${st.secret && secretMode?"秘":(st.value||"-")}`})));
@@ -322,57 +327,37 @@
   }
   const iconBtn=(txt,title,onClick)=>{ const b=el("button",{class:"iconbtn",title,type:"button","aria-label":title}); b.textContent=txt; b.addEventListener("click",onClick); return b; };
 
-  /* Editor */
+  /* ====== 編集 ====== */
   const eDlg=$("#editDlg"), vDlg=$("#viewDlg");
   const statsGrid=$("#statsGrid"), skillsWrap=$("#skillsWrap");
-  const input={ image:$("#imageInput"), preview:$("#editPreview"), name:$("#name"), gender:$("#gender"), first:$("#firstPerson"), second:$("#secondPerson"), speech:$("#speech"), notes:$("#notes"), colorPicker:$("#colorPicker"), clearColor:$("#clearColor"), swatches:$("#colorSwatches") };
+  const input={ image:$("#imageInput"), preview:$("#editPreview"),
+    name:$("#name"), gender:$("#gender"), first:$("#firstPerson"), second:$("#secondPerson"), speech:$("#speech"), notes:$("#notes") };
 
-  PRESET_COLORS.forEach(c=>{ const s=el("button",{class:"swatch",type:"button",title:c}); s.style.background=c; s.addEventListener("click",()=>{editing.color=c; paintSwatches(); paintPreviewColor();}); input.swatches.append(s); });
-  const paintSwatches=()=>{ input.swatches.querySelectorAll(".swatch").forEach((n,i)=>{ const c=PRESET_COLORS[i]; n.classList.toggle("sel", !!(editing?.color && editing.color.toLowerCase()===c.toLowerCase())); }); };
-  const paintPreviewColor=()=>{ input.colorPicker.value = editing?.color || "#000000"; };
-
-  document.querySelectorAll('[data-tab]').forEach(btn=>{
-    btn.addEventListener('click',()=>showTab(btn.dataset.tab));
-  });
-  function showTab(name){
-    $('#tabStats').hidden = name !== 'stats';
-    $('#tabSkills').hidden = name !== 'skills';
-    $('#tabNotes').hidden = name !== 'notes';
-  }
+  document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
+  function showTab(name){ $('#tabStats').hidden=name!=='stats'; $('#tabSkills').hidden=name!=='skills'; $('#tabNotes').hidden=name!=='notes'; }
 
   async function openEdit(id){
-    if(readOnly) return;
-    editing = id ? structuredClone(list.find(v=>v.id===id)) : { id:uid(), name:"", gender:"", firstPerson:"", secondPerson:"", speech:"", imageKey:"", color:"", notes:"", stats:DEFAULT_STATS.map(s=>({...s,value:"",secret:false})), skills:[{name:"",value:""}], createdAt:Date.now(), updatedAt:Date.now() };
+    editing = id ? structuredClone(list.find(v=>v.id===id)) : sample();
     await fillEditForm(); showTab("stats"); eDlg.showModal();
   }
   async function fillEditForm(){
-    if (editPreviewURL) { URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; }
-    input.preview.classList.toggle("contain",fitContain);
-    if(editing.imageKey){
-      try{
-        const blob=await idbGet(editing.imageKey);
-        if(blob){ editPreviewURL = URL.createObjectURL(blob); input.preview.innerHTML=`<img alt="preview" src="${editPreviewURL}">`; }
-        else input.preview.innerHTML=`<span class="small">画像なし</span>`;
-      }catch(e){ console.error(e); input.preview.innerHTML=`<span class="small">画像なし</span>`; }
-    }else{
-      input.preview.innerHTML=`<span class="small">画像プレビュー</span>`;
-    }
+    if(editing.imageKey){ const blob=await idbGet(editing.imageKey); if(blob){ const u=URL.createObjectURL(blob); input.preview.innerHTML=`<img alt="preview" src="${u}">`; } else input.preview.innerHTML=`<span class="small">画像なし</span>`; }
+    else input.preview.innerHTML=`<span class="small">画像プレビュー</span>`;
 
-    input.name.value=editing.name||""; input.gender.value=editing.gender||""; input.first.value=editing.firstPerson||""; input.second.value=editing.secondPerson||""; input.speech.value=editing.speech||""; input.notes.value=editing.notes||"";
-    paintPreviewColor(); paintSwatches();
-
-    statsGrid.innerHTML=""; editing.stats.forEach((st,i)=>{ const row=el("div",{class:"stat-item"}); row.append(
-      el("div",{class:"small",html:st.label}),
-      (()=>{ const v=el("input",{type:"text",value:st.value||"",placeholder:"数値"}); v.addEventListener("input",()=>editing.stats[i].value=v.value); return v; })(),
-      (()=>{
-        const lab=el("label",{class:"small",html:`<input type="checkbox" ${st.secret?"checked":""}> 秘匿`});
-        lab.querySelector("input").addEventListener("change",(e)=>editing.stats[i].secret=e.target.checked); return lab; })()
-    ); statsGrid.append(row); });
+    input.name.value=editing.name||""; input.gender.value=editing.gender||"";
+    input.first.value=editing.firstPerson||""; input.second.value=editing.secondPerson||""; input.speech.value=editing.speech||""; input.notes.value=editing.notes||"";
+    statsGrid.innerHTML=""; editing.stats.forEach((st,i)=>{ const row=el("div",{class:"stat-item"});
+      row.append(el("div",{class:"small",html:st.label}),
+        (()=>{ const v=el("input",{type:"text",value:st.value||"",placeholder:"数値"}); v.addEventListener("input",()=>editing.stats[i].value=v.value); return v; })(),
+        (()=>{
+          const lab=el("label",{class:"small",html:`<input type="checkbox" ${st.secret?"checked":""}> 秘匿`});
+          lab.querySelector("input").addEventListener("change",(e)=>editing.stats[i].secret=e.target.checked); return lab; })());
+      statsGrid.append(row);
+    });
     rebuildSkills();
   }
   function rebuildSkills(){
-    skillsWrap.innerHTML="";
-    (editing.skills||[]).forEach((sk,idx)=>{
+    skillsWrap.innerHTML=""; (editing.skills||[]).forEach((sk,idx)=>{
       const row=el("div",{class:"skill-item"});
       const n=el("input",{type:"text",value:sk.name||"",placeholder:"技能名（例：目星）"});
       const v=el("input",{type:"text",value:sk.value||"",placeholder:"値（例：75）"});
@@ -382,123 +367,219 @@
       row.append(n,v,del); skillsWrap.append(row);
     });
   }
-
-  // 画像選択：即時プレビュー → IndexedDB保存（エラーハンドリング付き）
   $("#imageInput").addEventListener("change", async (e)=>{
-    if(readOnly) return;
-    const f = e.target.files?.[0]; if(!f) return;
-    // 即時プレビュー
-    try{
-      if (editPreviewURL) { URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; }
-      editPreviewURL = URL.createObjectURL(f);
-      $("#editPreview").innerHTML = `<img alt="preview" src="${editPreviewURL}">`;
-    }catch(err){ console.error("preview failed:",err); }
-
-    // IndexedDB保存（非同期）
-    try{
-      const key = "img:" + (editing?.id || uid());
-      await idbSet(key, f);
-      if (!editing.id) editing.id = key.slice(4);
-      editing.imageKey = key;
-    }catch(err){
-      console.error("idbSet failed:", err);
-      alert("画像の保存に失敗しました。別の画像やブラウザ設定をご確認ください。");
-    }
+    const f=e.target.files?.[0]; if(!f) return;
+    const key="img:"+(editing?.id || uid());
+    await idbSet(key,f); if(!editing.id) editing.id=key.slice(4);
+    editing.imageKey=key; await fillEditForm();
   });
-
   async function saveEdit(){
-    if(readOnly) return;
     const now=Date.now();
-    Object.assign(editing,{ name:input.name.value.trim(), gender:input.gender.value.trim(), firstPerson:input.first.value.trim(), secondPerson:input.second.value.trim(), speech:input.speech.value.trim(), notes:input.notes.value, updatedAt:now });
+    Object.assign(editing,{ name:input.name.value.trim(), gender:input.gender.value.trim(),
+      firstPerson:input.first.value.trim(), secondPerson:input.second.value.trim(), speech:input.speech.value.trim(),
+      notes:input.notes.value, updatedAt:now });
     const exists=list.some(v=>v.id===editing.id);
     list = exists ? list.map(v=>v.id===editing.id?editing:v) : [editing, ...list];
     save(); await renderList(); eDlg.close();
   }
-  async function delItem(id){
-    if(readOnly) return;
-    const it=list.find(v=>v.id===id);
-    if(!confirm("この探索者を削除しますか？")) return;
-    if(it?.imageKey) await idbDelete(it.imageKey);
-    list=list.filter(v=>v.id!==id); save(); await renderList();
-  }
+  async function delItem(id){ if(!confirm("この探索者を削除しますか？")) return; list=list.filter(v=>v.id!==id); save(); await renderList(); }
+  $("#cancelEdit").addEventListener("click",()=>eDlg.close());
+  $("#saveEdit").addEventListener("click",saveEdit);
 
-  // 編集ダイアログを閉じる時にプレビューURLを解放
-  $("#cancelEdit").addEventListener("click", ()=>{ if(editPreviewURL){ URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; } eDlg.close(); });
-
-  /* Viewer */
+  /* ====== プロフィール表示 ====== */
   async function openView(id){
     viewing=structuredClone(list.find(v=>v.id===id)); if(!viewing) return;
-    const header=$("#viewHeader"); header.style.background=viewing.color||"transparent"; header.style.color=viewing.color?"#fff":"inherit";
-
-    if (viewPreviewURL) { URL.revokeObjectURL(viewPreviewURL); viewPreviewURL=null; }
     const vp=$("#viewPreview"); vp.classList.toggle("contain",fitContain);
-    if(viewing.imageKey){
-      try{
-        const blob=await idbGet(viewing.imageKey);
-        if(blob){ viewPreviewURL = URL.createObjectURL(blob); vp.innerHTML=`<img alt="${viewing.name}" src="${viewPreviewURL}">`; }
-        else vp.innerHTML=`<div class="small">画像なし</div>`;
-      }catch(e){ console.error(e); vp.innerHTML=`<div class="small">画像なし</div>`; }
-    } else {
-      vp.innerHTML=`<div class="small">画像なし</div>`;
-    }
-
-    const nameEl=$("#viewName"); nameEl.textContent=viewing.name||"(無名)"; nameEl.style.color=viewing.color||"";
-    $("#viewMeta").textContent=[viewing.gender,viewing.speech].filter(Boolean).join(" ・ ");
+    if(viewing.imageKey){ const blob=await idbGet(viewing.imageKey); if(blob){ vp.innerHTML=`<img alt="${viewing.name}" src="${URL.createObjectURL(blob)}">`; } else vp.innerHTML=`<div class="small">画像なし</div>`; }
+    else vp.innerHTML=`<div class="small">画像なし</div>`;
+    $("#viewName").textContent=viewing.name||"(無名)"; $("#viewMeta").textContent=[viewing.gender,viewing.speech].filter(Boolean).join(" ・ ");
     const chips=[]; if(viewing.firstPerson) chips.push(`<span class="chip">一人称 ${escapeHtml(viewing.firstPerson)}</span>`); if(viewing.secondPerson) chips.push(`<span class="chip">二人称 ${escapeHtml(viewing.secondPerson)}</span>`); $("#viewPronouns").innerHTML=chips.join(" ");
-
     currentVTab="v-profile"; renderVProfile(); clearVStats(); clearVSkills(); showVTab(currentVTab);
     isViewOpen=true; $("#viewDlg").showModal();
-    $("#editFromView").style.display = readOnly ? "none" : "";
-
-    // 編集ボタンの安定ハンドラ
-    const editBtn = $("#editFromView"); const cloned = editBtn.cloneNode(true); editBtn.replaceWith(cloned);
-    cloned.addEventListener("click",(ev)=>{
-      ev.preventDefault(); ev.stopPropagation();
-      if(!viewing){ alert("表示中の探索者が見つかりません"); return; }
-      if(readOnly){ alert("閲覧専用URLでは編集できません"); return; }
-      try{ isViewOpen=false; $("#viewDlg").close(); openEdit(viewing.id); }
-      catch(err){ console.error(err); alert("編集画面の起動に失敗しました"); }
-    });
   }
   function renderVProfile(){ $("#vProfile").textContent=(viewing?.notes||"（メモはありません）"); }
+  function clearVStats(){ $("#vStats").innerHTML=""; } function clearVSkills(){ $("#vSkills").innerHTML=""; }
   function renderVStats(){ const box=$("#vStats"); box.innerHTML=""; (viewing?.stats||[]).forEach(st=>{ const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">${st.label}${st.secret?"（秘）":""}</div><div style="font-weight:800">${st.secret && secretMode?"秘":(st.value||"-")}</div><div></div>`; box.append(row); }); }
   function renderVSkills(){ const box=$("#vSkills"); box.innerHTML=""; const skills=(viewing?.skills||[]).filter(s=>s.name); if(!skills.length){ box.append(el("div",{class:"small",html:"代表技能は登録されていません。"})); return; } const grid=el("div",{style:"display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"}); skills.forEach(s=>{ const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">技能</div><div><strong>${escapeHtml(s.name)}</strong></div><div class="small">${escapeHtml(s.value||"")}</div>`; grid.append(row); }); box.append(grid); }
-  function clearVStats(){ $("#vStats").innerHTML=""; } function clearVSkills(){ $("#vSkills").innerHTML=""; }
+  document.querySelectorAll('[data-vtab]').forEach(btn=>btn.addEventListener("click",()=>{ const name=btn.dataset.vtab; if(name==="v-profile"){ renderVProfile(); clearVStats(); clearVSkills(); } if(name==="v-stats"){ clearVSkills(); $("#vProfile").textContent=""; renderVStats(); } if(name==="v-skills"){ clearVStats(); $("#vProfile").textContent=""; renderVSkills(); } showVTab(name); }));
 
-  // 閉じるときプレビューURL解放
-  $("#closeView").addEventListener("click",()=>{ isViewOpen=false; viewing=null; if(viewPreviewURL){ URL.revokeObjectURL(viewPreviewURL); viewPreviewURL=null; } $("#viewDlg").close(); });
-  $("#viewDlg").addEventListener("close",()=>{ isViewOpen=false; viewing=null; if(viewPreviewURL){ URL.revokeObjectURL(viewPreviewURL); viewPreviewURL=null; } });
+  $("#closeView").addEventListener("click",()=>{ isViewOpen=false; viewing=null; $("#viewDlg").close(); });
+  $("#editFromView").addEventListener("click",()=>{ $("#viewDlg").close(); openEdit(viewing.id); });
 
-  /* Routing（共有URL用） */
-  function applyReadOnlyUI(){ ["#addBtn","#exportBtn","#importInput","#compactBtn","#editFromView"].forEach(sel=>{ const n=$(sel); if(n) n.style.display=readOnly?"none":""; }); }
+  /* ====== 共有データの書き出し（同じ内容を見せる用） ====== */
+  // 画像をDataURL化
+  function blobToDataURL(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(blob); }); }
+  async function buildShareJSON(){
+    const people=[];
+    for(const it of list){
+      let dataURL="";
+      if(it.imageKey){ const blob=await idbGet(it.imageKey); if(blob) dataURL=await blobToDataURL(blob); }
+      people.push({
+        id: it.id, name: it.name, color: it.color||"", notes: it.notes||"",
+        stats: (it.stats||[]).map(s=>({label:s.label,value:s.value,secret:!!s.secret})),
+        skills: (it.skills||[]).map(s=>({name:s.name||"",value:s.value||""})),
+        imageData: dataURL
+      });
+    }
+    return { updatedAt: Date.now(), people };
+  }
+  $("#exportShareBtn").addEventListener("click", async ()=>{
+    const data = await buildShareJSON();
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download="share_data.json"; a.click();
+    URL.revokeObjectURL(url);
+    // ヒント
+    showURL("ヒント: /share/share_data.json としてアップすると URL 例: " + buildShareListURL({src:"/share/share_data.json",p:1,n:20}));
+  });
+
+  /* ====== 共有モード（読み取り専用）：一覧＆ページング ====== */
+  const shareMain=$("#shareMain"), shareGrid=$("#shareGrid"), shareInfo=$("#shareInfo"),
+        sharePrev=$("#sharePrev"), shareNext=$("#shareNext"), sharePagerText=$("#sharePagerText");
+
+  function showURL(u){ const box=$("#urlBox"); box.textContent=u; box.classList.remove("invis"); navigator.clipboard?.writeText(u).catch(()=>{}); setTimeout(()=>box.classList.add("invis"),8000); }
+
+  async function fetchShareData(src){
+    const abs = src.match(/^https?:\/\//) ? src : (src.startsWith("/") ? src : PAGES_BASE.replace(/\/$/,"/")+src);
+    const res = await fetch(abs, {cache:"no-store"});
+    if(!res.ok) throw new Error("共有データの取得に失敗: "+res.status);
+    const data = await res.json();
+    // 簡易正規化
+    data.people = (data.people||[]).map(p=>({
+      id:p.id||uid(), name:p.name||"(無名)", imageData:p.imageData||"", color:p.color||"", notes:p.notes||"",
+      stats:(p.stats||[]), skills:(p.skills||[])
+    }));
+    return data;
+  }
+
+  function renderShareList({src, p, n}){
+    $("#appMain").classList.add("invis"); shareMain.classList.remove("invis");
+    shareGrid.innerHTML="";
+
+    const total = shareData.people.length;
+    const pages = Math.max(1, Math.ceil(total / n));
+    const page = Math.min(Math.max(1,p), pages);
+    const start = (page-1)*n, end = Math.min(start+n, total);
+    const slice = shareData.people.slice(start,end);
+
+    slice.forEach(person=>{
+      const card = el("a",{class:"card", href: buildShareViewURL({src,id:person.id}), style:"display:block; text-decoration:none; color:inherit; padding:14px; text-align:center"});
+      const av = el("div",{class:"avatar"});
+      if(person.imageData){ av.append(el("img",{src:person.imageData,alt:person.name})); }
+      else av.append(el("div",{class:"small",html:"画像なし"}));
+      const nm = el("div",{style:"margin-top:10px; font-weight:700"}, person.name);
+      card.append(av,nm);
+      shareGrid.append(card);
+    });
+
+    shareInfo.textContent = `全${total}件 / 1ページ${n}件表示`;
+    sharePagerText.textContent = `${page} / ${pages} ページ`;
+    sharePrev.disabled = (page<=1); shareNext.disabled = (page>=pages);
+
+    sharePrev.onclick = ()=>{ location.hash = `#/s/list?p=${page-1}&n=${n}&src=${encodeURIComponent(src)}`; };
+    shareNext.onclick = ()=>{ location.hash = `#/s/list?p=${page+1}&n=${n}&src=${encodeURIComponent(src)}`; };
+    $("#shareCopyThisPage").onclick = ()=> showURL(buildShareListURL({src,p:page,n}));
+  }
+
+  async function renderShareView({src, id}){
+    // 共有データ側の詳細は、このページのプロフィールdlgを使わず、別タブ遷移でもOKだが、
+    // ここでは同じdlgに流し込む（閲覧専用）
+    const p = shareData.people.find(x=>x.id===id);
+    if(!p){ alert("該当探索者が見つかりません"); location.hash = `#/s/list?src=${encodeURIComponent(src)}`; return; }
+
+    $("#appMain").classList.add("invis"); shareMain.classList.add("invis");
+
+    // 画像
+    const vp=$("#viewPreview"); vp.classList.toggle("contain",fitContain);
+    if(p.imageData){ vp.innerHTML=`<img alt="${p.name}" src="${p.imageData}">`; } else vp.innerHTML=`<div class="small">画像なし</div>`;
+    $("#viewName").textContent=p.name||"(無名)"; $("#viewMeta").textContent=""; $("#viewPronouns").innerHTML="";
+
+    // tabs
+    currentVTab="v-profile";
+    $("#vProfile").textContent = (p.notes||"（メモはありません）");
+    $("#vStats").innerHTML=""; (p.stats||[]).forEach(st=>{
+      const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">${st.label||""}</div><div style="font-weight:800">${st.value||"-"}</div><div></div>`;
+      $("#vStats").append(row);
+    });
+    $("#vSkills").innerHTML=""; const skills=(p.skills||[]).filter(s=>s.name);
+    if(!skills.length) $("#vSkills").append(el("div",{class:"small",html:"代表技能は登録されていません。"}));
+    else{
+      const grid=el("div",{style:"display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"});
+      skills.forEach(s=>{
+        const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">技能</div><div><strong>${escapeHtml(s.name)}</strong></div><div class="small">${escapeHtml(s.value||"")}</div>`;
+        grid.append(row);
+      });
+      $("#vSkills").append(grid);
+    }
+    // 閲覧専用なので編集ボタン隠す
+    $("#editFromView").style.display = "none";
+    showVTab("v-profile");
+    $("#viewDlg").showModal();
+
+    // 「この探索者のURL」
+    $("#shareOneBtn").onclick = ()=> showURL(buildShareViewURL({src,id:p.id}));
+  }
+
+  function showVTab(name){
+    $("#vProfile").hidden = name!=="v-profile";
+    $("#vStats").hidden   = name!=="v-stats";
+    $("#vSkills").hidden  = name!=="v-skills";
+  }
+
+  /* ====== ルーティング ====== */
   async function handleRoute(){
-    const hash=location.hash||""; const mV=hash.match(/^#\/view\/(.+)$/), mL=hash.match(/^#\/list$/);
-    if(mV){ readOnly=true; applyReadOnlyUI(); await renderList(); openView(decodeURIComponent(mV[1])); return; }
-    if(mL){ readOnly=true; applyReadOnlyUI(); await renderList(); return; }
-    readOnly=false; applyReadOnlyUI(); await renderList();
+    const {route, params} = parseHashQuery();
+    if(route?.startsWith("#/s/")){ // 共有モード
+      $("#addBtn").style.display="none"; $("#exportBtn").style.display="none"; $("#importInput").style.display="none"; $("#compactBtn").style.display="none";
+      const src = params.get("src");
+      if(!shareData || (shareData._src!==src)){ // データ未ロード or 別ファイル
+        if(!src){ alert("src=（共有JSONのパス）が必要です"); location.hash=""; return; }
+        try{
+          shareData = await fetchShareData(src);
+          shareData._src = src;
+        }catch(e){ console.error(e); alert("共有データの取得に失敗しました"); location.hash=""; return; }
+      }
+      if(route.startsWith("#/s/list")){
+        const p = parseInt(params.get("p")||"1",10);
+        const n = parseInt(params.get("n")||"20",10);
+        renderShareList({src, p, n});
+        return;
+      }
+      const m = route.match(/^#\/s\/view\/(.+)$/);
+      if(m){
+        const id = decodeURIComponent(m[1]);
+        await renderShareView({src,id});
+        return;
+      }
+      // 不明 → 一覧へ
+      location.hash = `#/s/list?src=${encodeURIComponent(params.get("src"))}`;
+      return;
+    }
+
+    // 通常モード
+    $("#addBtn").style.display=""; $("#exportBtn").style.display=""; $("#importInput").style.display=""; $("#compactBtn").style.display="";
+    await renderList();
   }
   window.addEventListener("hashchange", handleRoute);
 
-  /* Events */
-  const toolSel=$("#toolPosSel"); toolSel.value=(localStorage.getItem(TOOL_POS_KEY)||"br");
-  toolSel.addEventListener("change", ()=>{ setToolPos(toolSel.value); renderList(); if(isViewOpen && viewing){ openView(viewing.id); } });
+  /* ====== イベント ====== */
+  const urlBox=$("#urlBox");
+  function showURL(u){ urlBox.textContent=u; urlBox.classList.remove("invis"); navigator.clipboard?.writeText(u).catch(()=>{}); setTimeout(()=>urlBox.classList.add("invis"),8000); }
 
-  $("#shareListBtn").addEventListener("click", ()=> showURL(buildListURL()));
-  $("#shareOneBtn").addEventListener("click", ()=>{ if(!viewing) return; showURL(buildProfileURL(viewing.id)); });
-
-  $("#addBtn").addEventListener("click",()=>openEdit(null));
-  $("#saveEdit").addEventListener("click",saveEdit);
-  $("#cancelEdit").addEventListener("click",()=>{ if(editPreviewURL){ URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; } eDlg.close(); });
+  $("#shareListBtn").addEventListener("click", ()=> showURL(buildLocalListURL()));
   $("#q").addEventListener("input",()=>renderList());
+  $("#secretToggle").addEventListener("change",(e)=>{ secretMode=e.target.checked; renderList(); });
+  $("#fitToggle").addEventListener("change",(e)=>{ fitContain=e.target.checked; renderList(); });
+  $("#addBtn").addEventListener("click",()=>openEdit(null));
+  $("#compactBtn").addEventListener("click",async()=>{ alert("最適化：画像はすでにIndexedDBに保存されています。JSONは『共有データ書き出し(JSON)』をご利用ください。"); });
 
-  $("#secretToggle").addEventListener("change",(e)=>{ secretMode=e.target.checked; renderList(); if(isViewOpen){ if(currentVTab==="v-profile")renderVProfile(); if(currentVTab==="v-stats")renderVStats(); if(currentVTab==="v-skills")renderVSkills(); showVTab(currentVTab);} });
-  $("#fitToggle").addEventListener("change",(e)=>{ fitContain=e.target.checked; renderList(); if(isViewOpen){ openView(viewing.id); }});
+  toolSel.value=(localStorage.getItem(TOOL_POS_KEY)||"br"); toolSel.addEventListener("change", ()=>{ setToolPos(toolSel.value); renderList(); });
 
-  $("#exportBtn").addEventListener("click",()=>{ if(readOnly) return; const blob=new Blob([JSON.stringify(list,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="investigators_meta.json"; a.click(); URL.revokeObjectURL(url); });
-  $("#importInput").addEventListener("change",async(ev)=>{ if(readOnly) return; const f=ev.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=async()=>{ try{ const data=JSON.parse(r.result); if(Array.isArray(data)){ list=data.map(normalizeEntry); await migrateImagesIfNeeded(list); save(); await renderList(); } else alert("JSON形式が正しくありません。"); } catch{ alert("JSONの読み込みに失敗しました。"); } }; r.readAsText(f); ev.target.value=""; });
-  $("#compactBtn").addEventListener("click",async()=>{ if(readOnly) return; for(const it of list){ if(it._legacyDataUrl){ const key="img:"+it.id; await idbSet(key,dataURLToBlob(it._legacyDataUrl)); it.imageKey=key; delete it._legacyDataUrl; } } save(); alert("最適化しました。（画像はIndexedDBへ退避）"); await renderList(); });
+  $("#closeView").addEventListener("click",()=>{ isViewOpen=false; viewing=null; $("#viewDlg").close(); });
 
+  /* ====== 起動 ====== */
   (async()=>{ await load(); await handleRoute(); })();
+
 })();
 </script>
 </body>
