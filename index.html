@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CoC 探索者カードメーカー（共有URL対応）</title>
+<title>CoC 探索者カードメーカー（一覧→プロフィール修正）</title>
 <style>
   :root{--bg:#f6f7fb;--panel:#fff;--ink:#17181c;--muted:#6b7280;--line:#e6e7ee;--accent:#4f46e5;--accent-ink:#fff;--soft:#f3f4f6;--danger:#ef4444;--radius:16px}
   *{box-sizing:border-box} html,body{height:100%}
@@ -85,13 +85,9 @@
       <label class="switch"><input id="secretToggle" type="checkbox" checked /><span>秘匿モード</span></label>
       <label class="switch"><input id="fitToggle" type="checkbox" checked /><span>サムネ収める</span></label>
 
-      <!-- 共有：従来（自分のローカルを見る） -->
       <button class="btn" id="shareListBtn">共有URL（一覧）</button>
-
-      <!-- 共有用データ書き出し（同じ内容を他者に見せたい用） -->
       <button class="btn" id="exportShareBtn" title="公開用のJSON（画像含む）を書き出し">共有データ書き出し(JSON)</button>
 
-      <!-- ボタン位置（既存機能） -->
       <label class="switch" title="カード上のボタン位置">
         <span>ボタン位置</span>
         <select id="toolPosSel">
@@ -115,7 +111,6 @@
     <div id="urlBox" class="mono invis"></div>
   </main>
 
-  <!-- 共有用一覧（読み取り専用モードで使用） -->
   <main id="shareMain" class="sharewrap invis">
     <div class="center">
       <button class="btn" id="shareCopyThisPage">このページのURLをコピー</button>
@@ -131,7 +126,6 @@
     </div>
   </main>
 
-  <!-- 編集ダイアログ -->
   <dialog id="editDlg" aria-labelledby="editTitle">
     <div class="modal-head" id="editTitle">探索者の編集</div>
     <div class="modal-body">
@@ -164,7 +158,6 @@
     <div class="modal-foot"><button class="btn ghost" id="cancelEdit" type="button">キャンセル</button><button class="btn primary" id="saveEdit" type="button">保存</button></div>
   </dialog>
 
-  <!-- プロフィール（閲覧） -->
   <dialog id="viewDlg" aria-labelledby="viewTitle">
     <div class="modal-head" id="viewHeader">
       <span id="viewTitle">探索者プロフィール</span>
@@ -200,14 +193,14 @@
 
 <script>
 (() => {
-  /* ===== 共有URLのベース（今いる場所から自動算出） ===== */
+  /* ==== 共有URLのベース（今いる場所から自動算出） ==== */
   const PAGES_BASE = (() => {
     const { origin, pathname } = location;
     const base = pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
     return origin + base;
   })();
 
-  /* ====== ストレージ & IndexedDB（省略なく） ====== */
+  /* ==== Storage / IDB ==== */
   const STORAGE_KEYS=["coc-investigators-html-v3","coc-investigators-html-v2","coc-investigators-html-v1","coc-investigators-v1"];
   const CURRENT_KEY=STORAGE_KEYS[0];
   const DB_NAME="cocCardsDB", DB_VERSION=1, STORE="images";
@@ -218,7 +211,7 @@
   async function idbSet(key,blob){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,"readwrite"); tx.objectStore(STORE).put(blob,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
   async function idbGet(key){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,"readonly"); const rq=tx.objectStore(STORE).get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); }); }
 
-  /* ====== ユーティリティ ====== */
+  /* ==== Utils ==== */
   const $=sel=>document.querySelector(sel);
   const el=(tag,props={},...kids)=>{ const n=document.createElement(tag); Object.entries(props).forEach(([k,v])=>{
     if(k==="class") n.className=v; else if(k==="html") n.innerHTML=v;
@@ -227,24 +220,21 @@
   const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
   const escapeHtml=s=>(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;","\"":"&quot;","'":"&#39;"}[m]));
 
-  /* ====== アプリデータ ====== */
+  /* ==== Data ==== */
   const DEFAULT_STATS=["STR","CON","POW","DEX","APP","SIZ","INT","EDU","HP","MP","SAN"].map(k=>({key:k,label:k}));
   const sample=()=>({id:uid(),name:"サンプル探索者",gender:"",firstPerson:"",secondPerson:"",speech:"",imageKey:"",color:"",notes:"",stats:DEFAULT_STATS.map(s=>({...s,value:"",secret:false})),skills:[],createdAt:Date.now(),updatedAt:Date.now()});
+
   let list=[],secretMode=true,fitContain=true,viewing=null,editing=null;
   let readOnly=false,isViewOpen=false,currentVTab="v-profile";
   const TOOL_POS_KEY="coc_cards_toolpos_v1";
 
-  /* ====== 共有データ（他人にも同じ内容を見せる） ====== */
-  // フェッチして使う読み取り専用データ
-  let shareData=null; // {people:[{id,name,imageData,color,notes,skills,stats}], updatedAt:number}
+  /* ==== Share-mode data ==== */
+  let shareData=null; // {people:[...], updatedAt, _src}
 
-  // 共有モード：一覧/詳細のURLを生成
   const buildShareListURL = ({src, p, n}) => `${PAGES_BASE}/#/s/list?p=${p||1}&n=${n||20}&src=${encodeURIComponent(src)}`;
   const buildShareViewURL = ({src, id}) => `${PAGES_BASE}/#/s/view/${encodeURIComponent(id)}?src=${encodeURIComponent(src)}`;
-  // 従来（ローカルを見るだけ）の一覧URL
   const buildLocalListURL = () => `${PAGES_BASE}/#/list`;
 
-  // ハッシュのクエリ取得（#/s/list?p=1&n=20&src=... 形式）
   function parseHashQuery(){
     const h = location.hash || "";
     const [route, q] = h.split("?");
@@ -252,7 +242,7 @@
     return { route, params };
   }
 
-  /* ====== 読み込み・保存 ====== */
+  /* ==== Load / Save ==== */
   function readKey(key){ try{const raw=localStorage.getItem(key); if(!raw) return null; const data=JSON.parse(raw); return Array.isArray(data)?data:null;}catch{return null;} }
   function normalizeEntry(v){
     v=v||{}; v.id||=uid(); v.name||=""; v.gender||=""; v.firstPerson||=""; v.secondPerson||=""; v.speech||=""; v.color||=""; v.notes||="";
@@ -269,7 +259,7 @@
   }
   function save(){ if(!readOnly) localStorage.setItem(CURRENT_KEY, JSON.stringify(list)); }
 
-  /* ====== 一覧（通常モード） ====== */
+  /* ==== Normal list ==== */
   const listBox=$("#list");
   const toolSel=$("#toolPosSel");
   function getToolPos(){ return localStorage.getItem(TOOL_POS_KEY) || "br"; }
@@ -327,7 +317,7 @@
   }
   const iconBtn=(txt,title,onClick)=>{ const b=el("button",{class:"iconbtn",title,type:"button","aria-label":title}); b.textContent=txt; b.addEventListener("click",onClick); return b; };
 
-  /* ====== 編集 ====== */
+  /* ==== Editor ==== */
   const eDlg=$("#editDlg"), vDlg=$("#viewDlg");
   const statsGrid=$("#statsGrid"), skillsWrap=$("#skillsWrap");
   const input={ image:$("#imageInput"), preview:$("#editPreview"),
@@ -386,7 +376,7 @@
   $("#cancelEdit").addEventListener("click",()=>eDlg.close());
   $("#saveEdit").addEventListener("click",saveEdit);
 
-  /* ====== プロフィール表示 ====== */
+  /* ==== Profile View (normal) ==== */
   async function openView(id){
     viewing=structuredClone(list.find(v=>v.id===id)); if(!viewing) return;
     const vp=$("#viewPreview"); vp.classList.toggle("contain",fitContain);
@@ -394,7 +384,7 @@
     else vp.innerHTML=`<div class="small">画像なし</div>`;
     $("#viewName").textContent=viewing.name||"(無名)"; $("#viewMeta").textContent=[viewing.gender,viewing.speech].filter(Boolean).join(" ・ ");
     const chips=[]; if(viewing.firstPerson) chips.push(`<span class="chip">一人称 ${escapeHtml(viewing.firstPerson)}</span>`); if(viewing.secondPerson) chips.push(`<span class="chip">二人称 ${escapeHtml(viewing.secondPerson)}</span>`); $("#viewPronouns").innerHTML=chips.join(" ");
-    currentVTab="v-profile"; renderVProfile(); clearVStats(); clearVSkills(); showVTab(currentVTab);
+    currentVTab="v-profile"; renderVProfile(); clearVStats(); clearVSkills(); showVTab(currentVTab); /* ← ここを showVTab に統一 */
     isViewOpen=true; $("#viewDlg").showModal();
   }
   function renderVProfile(){ $("#vProfile").textContent=(viewing?.notes||"（メモはありません）"); }
@@ -404,24 +394,16 @@
   document.querySelectorAll('[data-vtab]').forEach(btn=>btn.addEventListener("click",()=>{ const name=btn.dataset.vtab; if(name==="v-profile"){ renderVProfile(); clearVStats(); clearVSkills(); } if(name==="v-stats"){ clearVSkills(); $("#vProfile").textContent=""; renderVStats(); } if(name==="v-skills"){ clearVStats(); $("#vProfile").textContent=""; renderVSkills(); } showVTab(name); }));
 
   $("#closeView").addEventListener("click",()=>{ isViewOpen=false; viewing=null; $("#viewDlg").close(); });
-  $("#editFromView").addEventListener("click",()=>{ $("#viewDlg").close(); openEdit(viewing.id); });
 
-  /* ====== 共有データの書き出し（同じ内容を見せる用） ====== */
-  // 画像をDataURL化
+  /* ==== Share data export ==== */
   function blobToDataURL(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(blob); }); }
   async function buildShareJSON(){
     const people=[];
     for(const it of list){
-      let dataURL="";
-      if(it.imageKey){ const blob=await idbGet(it.imageKey); if(blob) dataURL=await blobToDataURL(blob); }
-      people.push({
-        id: it.id, name: it.name, color: it.color||"", notes: it.notes||"",
-        stats: (it.stats||[]).map(s=>({label:s.label,value:s.value,secret:!!s.secret})),
-        skills: (it.skills||[]).map(s=>({name:s.name||"",value:s.value||""})),
-        imageData: dataURL
-      });
+      let dataURL=""; if(it.imageKey){ const b=await idbGet(it.imageKey); if(b) dataURL=await blobToDataURL(b); }
+      people.push({ id:it.id, name:it.name, color:it.color||"", notes:it.notes||"", stats:(it.stats||[]).map(s=>({label:s.label,value:s.value,secret:!!s.secret})), skills:(it.skills||[]).map(s=>({name:s.name||"",value:s.value||""})), imageData:dataURL });
     }
-    return { updatedAt: Date.now(), people };
+    return { updatedAt:Date.now(), people };
   }
   $("#exportShareBtn").addEventListener("click", async ()=>{
     const data = await buildShareJSON();
@@ -429,140 +411,75 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href=url; a.download="share_data.json"; a.click();
     URL.revokeObjectURL(url);
-    // ヒント
-    showURL("ヒント: /share/share_data.json としてアップすると URL 例: " + buildShareListURL({src:"/share/share_data.json",p:1,n:20}));
+    showURL("ヒント: /share/share_data.json として公開 → " + (PAGES_BASE + "/#/s/list?p=1&n=20&src=/share/share_data.json"));
   });
 
-  /* ====== 共有モード（読み取り専用）：一覧＆ページング ====== */
+  /* ==== Share mode (read-only) ==== */
   const shareMain=$("#shareMain"), shareGrid=$("#shareGrid"), shareInfo=$("#shareInfo"),
         sharePrev=$("#sharePrev"), shareNext=$("#shareNext"), sharePagerText=$("#sharePagerText");
 
-  function showURL(u){ const box=$("#urlBox"); box.textContent=u; box.classList.remove("invis"); navigator.clipboard?.writeText(u).catch(()=>{}); setTimeout(()=>box.classList.add("invis"),8000); }
-
   async function fetchShareData(src){
     const abs = src.match(/^https?:\/\//) ? src : (src.startsWith("/") ? src : PAGES_BASE.replace(/\/$/,"/")+src);
-    const res = await fetch(abs, {cache:"no-store"});
-    if(!res.ok) throw new Error("共有データの取得に失敗: "+res.status);
+    const res = await fetch(abs, {cache:"no-store"}); if(!res.ok) throw new Error("共有データ取得失敗: "+res.status);
     const data = await res.json();
-    // 簡易正規化
-    data.people = (data.people||[]).map(p=>({
-      id:p.id||uid(), name:p.name||"(無名)", imageData:p.imageData||"", color:p.color||"", notes:p.notes||"",
-      stats:(p.stats||[]), skills:(p.skills||[])
-    }));
+    data.people = (data.people||[]).map(p=>({ id:p.id||uid(), name:p.name||"(無名)", imageData:p.imageData||"", color:p.color||"", notes:p.notes||"", stats:(p.stats||[]), skills:(p.skills||[]) }));
     return data;
   }
-
   function renderShareList({src, p, n}){
     $("#appMain").classList.add("invis"); shareMain.classList.remove("invis");
-    shareGrid.innerHTML="";
-
-    const total = shareData.people.length;
-    const pages = Math.max(1, Math.ceil(total / n));
-    const page = Math.min(Math.max(1,p), pages);
-    const start = (page-1)*n, end = Math.min(start+n, total);
-    const slice = shareData.people.slice(start,end);
-
+    shareGrid.innerHTML=""; const total=shareData.people.length; const pages=Math.max(1,Math.ceil(total/n)); const page=Math.min(Math.max(1,p),pages);
+    const slice = shareData.people.slice((page-1)*n, Math.min(page*n,total));
     slice.forEach(person=>{
-      const card = el("a",{class:"card", href: buildShareViewURL({src,id:person.id}), style:"display:block; text-decoration:none; color:inherit; padding:14px; text-align:center"});
+      const a = el("a",{class:"card", href: buildShareViewURL({src,id:person.id}), style:"display:block;text-decoration:none;color:inherit;padding:14px;text-align:center"});
       const av = el("div",{class:"avatar"});
-      if(person.imageData){ av.append(el("img",{src:person.imageData,alt:person.name})); }
-      else av.append(el("div",{class:"small",html:"画像なし"}));
-      const nm = el("div",{style:"margin-top:10px; font-weight:700"}, person.name);
-      card.append(av,nm);
-      shareGrid.append(card);
+      if(person.imageData){ av.append(el("img",{src:person.imageData,alt:person.name})); } else av.append(el("div",{class:"small",html:"画像なし"}));
+      const nm=el("div",{style:"margin-top:10px;font-weight:700"}, person.name);
+      a.append(av,nm); shareGrid.append(a);
     });
-
-    shareInfo.textContent = `全${total}件 / 1ページ${n}件表示`;
-    sharePagerText.textContent = `${page} / ${pages} ページ`;
-    sharePrev.disabled = (page<=1); shareNext.disabled = (page>=pages);
-
-    sharePrev.onclick = ()=>{ location.hash = `#/s/list?p=${page-1}&n=${n}&src=${encodeURIComponent(src)}`; };
-    shareNext.onclick = ()=>{ location.hash = `#/s/list?p=${page+1}&n=${n}&src=${encodeURIComponent(src)}`; };
-    $("#shareCopyThisPage").onclick = ()=> showURL(buildShareListURL({src,p:page,n}));
+    shareInfo.textContent=`全${total}件 / 1ページ${n}件表示`; sharePagerText.textContent=`${page} / ${pages} ページ`;
+    sharePrev.disabled=(page<=1); shareNext.disabled=(page>=pages);
+    sharePrev.onclick=()=>{ location.hash = `#/s/list?p=${page-1}&n=${n}&src=${encodeURIComponent(src)}`; };
+    shareNext.onclick=()=>{ location.hash = `#/s/list?p=${page+1}&n=${n}&src=${encodeURIComponent(src)}`; };
+    $("#shareCopyThisPage").onclick=()=> showURL(buildShareListURL({src,p:page,n}));
   }
-
-  async function renderShareView({src, id}){
-    // 共有データ側の詳細は、このページのプロフィールdlgを使わず、別タブ遷移でもOKだが、
-    // ここでは同じdlgに流し込む（閲覧専用）
+  async function renderShareView({src,id}){
     const p = shareData.people.find(x=>x.id===id);
     if(!p){ alert("該当探索者が見つかりません"); location.hash = `#/s/list?src=${encodeURIComponent(src)}`; return; }
-
     $("#appMain").classList.add("invis"); shareMain.classList.add("invis");
-
-    // 画像
     const vp=$("#viewPreview"); vp.classList.toggle("contain",fitContain);
     if(p.imageData){ vp.innerHTML=`<img alt="${p.name}" src="${p.imageData}">`; } else vp.innerHTML=`<div class="small">画像なし</div>`;
     $("#viewName").textContent=p.name||"(無名)"; $("#viewMeta").textContent=""; $("#viewPronouns").innerHTML="";
-
-    // tabs
-    currentVTab="v-profile";
-    $("#vProfile").textContent = (p.notes||"（メモはありません）");
-    $("#vStats").innerHTML=""; (p.stats||[]).forEach(st=>{
-      const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">${st.label||""}</div><div style="font-weight:800">${st.value||"-"}</div><div></div>`;
-      $("#vStats").append(row);
-    });
-    $("#vSkills").innerHTML=""; const skills=(p.skills||[]).filter(s=>s.name);
-    if(!skills.length) $("#vSkills").append(el("div",{class:"small",html:"代表技能は登録されていません。"}));
-    else{
-      const grid=el("div",{style:"display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"});
-      skills.forEach(s=>{
-        const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">技能</div><div><strong>${escapeHtml(s.name)}</strong></div><div class="small">${escapeHtml(s.value||"")}</div>`;
-        grid.append(row);
-      });
-      $("#vSkills").append(grid);
-    }
-    // 閲覧専用なので編集ボタン隠す
-    $("#editFromView").style.display = "none";
-    showVTab("v-profile");
+    currentVTab="v-profile"; $("#vProfile").textContent=(p.notes||"（メモはありません）"); $("#vStats").innerHTML=""; (p.stats||[]).forEach(st=>{ const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">${st.label||""}</div><div style="font-weight:800">${st.value||"-"}</div><div></div>`; $("#vStats").append(row); });
+    $("#vSkills").innerHTML=""; const skills=(p.skills||[]).filter(s=>s.name); if(!skills.length) $("#vSkills").append(el("div",{class:"small",html:"代表技能は登録されていません。"})); else{ const grid=el("div",{style:"display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"}); skills.forEach(s=>{ const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">技能</div><div><strong>${escapeHtml(s.name)}</strong></div><div class="small">${escapeHtml(s.value||"")}</div>`; grid.append(row); }); $("#vSkills").append(grid); }
+    $("#editFromView").style.display="none";
+    showVTab("v-profile"); /* ← ここも showVTab に統一 */
     $("#viewDlg").showModal();
-
-    // 「この探索者のURL」
-    $("#shareOneBtn").onclick = ()=> showURL(buildShareViewURL({src,id:p.id}));
+    $("#shareOneBtn").onclick=()=> showURL(buildShareViewURL({src,id:p.id}));
   }
-
   function showVTab(name){
     $("#vProfile").hidden = name!=="v-profile";
     $("#vStats").hidden   = name!=="v-stats";
     $("#vSkills").hidden  = name!=="v-skills";
   }
 
-  /* ====== ルーティング ====== */
+  /* ==== Routing ==== */
   async function handleRoute(){
-    const {route, params} = parseHashQuery();
-    if(route?.startsWith("#/s/")){ // 共有モード
+    const h = location.hash || "";
+    const [route, q] = h.split("?"); const params=new URLSearchParams(q||"");
+    if(route?.startsWith("#/s/")){
       $("#addBtn").style.display="none"; $("#exportBtn").style.display="none"; $("#importInput").style.display="none"; $("#compactBtn").style.display="none";
-      const src = params.get("src");
-      if(!shareData || (shareData._src!==src)){ // データ未ロード or 別ファイル
-        if(!src){ alert("src=（共有JSONのパス）が必要です"); location.hash=""; return; }
-        try{
-          shareData = await fetchShareData(src);
-          shareData._src = src;
-        }catch(e){ console.error(e); alert("共有データの取得に失敗しました"); location.hash=""; return; }
-      }
-      if(route.startsWith("#/s/list")){
-        const p = parseInt(params.get("p")||"1",10);
-        const n = parseInt(params.get("n")||"20",10);
-        renderShareList({src, p, n});
-        return;
-      }
-      const m = route.match(/^#\/s\/view\/(.+)$/);
-      if(m){
-        const id = decodeURIComponent(m[1]);
-        await renderShareView({src,id});
-        return;
-      }
-      // 不明 → 一覧へ
-      location.hash = `#/s/list?src=${encodeURIComponent(params.get("src"))}`;
-      return;
+      const src=params.get("src"); if(!src){ alert("src=（共有JSONのパス）が必要です"); location.hash=""; return; }
+      if(!shareData || shareData._src!==src){ try{ shareData = await (await fetch((src.match(/^https?:\/\//)?src:(src.startsWith("/")?src:PAGES_BASE.replace(/\/$/,"/")+src)),{cache:"no-store"})).json(); shareData._src=src; } catch(e){ console.error(e); alert("共有データの取得に失敗しました"); location.hash=""; return; } }
+      if(route.startsWith("#/s/list")){ const p=parseInt(params.get("p")||"1",10); const n=parseInt(params.get("n")||"20",10); renderShareList({src,p,n}); return; }
+      const m = route.match(/^#\/s\/view\/(.+)$/); if(m){ await renderShareView({src,id:decodeURIComponent(m[1])}); return; }
+      location.hash = `#/s/list?src=${encodeURIComponent(src)}`; return;
     }
-
-    // 通常モード
     $("#addBtn").style.display=""; $("#exportBtn").style.display=""; $("#importInput").style.display=""; $("#compactBtn").style.display="";
     await renderList();
   }
   window.addEventListener("hashchange", handleRoute);
 
-  /* ====== イベント ====== */
+  /* ==== Events ==== */
   const urlBox=$("#urlBox");
   function showURL(u){ urlBox.textContent=u; urlBox.classList.remove("invis"); navigator.clipboard?.writeText(u).catch(()=>{}); setTimeout(()=>urlBox.classList.add("invis"),8000); }
 
@@ -571,15 +488,15 @@
   $("#secretToggle").addEventListener("change",(e)=>{ secretMode=e.target.checked; renderList(); });
   $("#fitToggle").addEventListener("change",(e)=>{ fitContain=e.target.checked; renderList(); });
   $("#addBtn").addEventListener("click",()=>openEdit(null));
-  $("#compactBtn").addEventListener("click",async()=>{ alert("最適化：画像はすでにIndexedDBに保存されています。JSONは『共有データ書き出し(JSON)』をご利用ください。"); });
+  $("#compactBtn").addEventListener("click",async()=>{ alert("最適化：画像はIndexedDBに保存。公開共有は『共有データ書き出し(JSON)』を使ってください。"); });
 
-  toolSel.value=(localStorage.getItem(TOOL_POS_KEY)||"br"); toolSel.addEventListener("change", ()=>{ setToolPos(toolSel.value); renderList(); });
+  toolSel.value=(localStorage.getItem(TOOL_POS_KEY)||"br");
+  toolSel.addEventListener("change", ()=>{ setToolPos(toolSel.value); renderList(); });
 
   $("#closeView").addEventListener("click",()=>{ isViewOpen=false; viewing=null; $("#viewDlg").close(); });
 
-  /* ====== 起動 ====== */
+  /* ==== Boot ==== */
   (async()=>{ await load(); await handleRoute(); })();
-
 })();
 </script>
 </body>
