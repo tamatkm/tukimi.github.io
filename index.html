@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CoC 探索者カードメーカー（安定修正版）</title>
+<style>
+  :root{--bg:#f6f7fb;--panel:#fff;--ink:#17181c;--muted:#6b7280;--line:#e6e7ee;--accent:#4f46e5;--accent-ink:#fff;--soft:#f3f4f6;--danger:#ef4444;--radius:16px}
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;color:var(--ink);background:
+    radial-gradient(1200px 500px at 100% -20%, #e8e9ff 0%, transparent 60%),
+    radial-gradient(1200px 500px at -10% 120%, #e7fff7 0%, transparent 60%),var(--bg);
+    font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;letter-spacing:.2px}
+  header{position:sticky;top:0;z-index:10;backdrop-filter:blur(8px);background:color-mix(in oklab,#fff 85%,transparent);border-bottom:1px solid var(--line)}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .search{flex:1 1 700px;min-width:420px;max-width:100%}
+  @media (max-width:720px){ .search{flex:1 1 100%;min-width:0} }
+
+  h1{font-size:22px;margin:0 14px 0 0;font-weight:700;letter-spacing:.3px}
+  input[type="text"],textarea,input[type="file"],input[type="color"],select{
+    width:100%;border:1px solid var(--line);background:#fff;color:var(--ink);
+    border-radius:10px;padding:10px 12px;outline:none
+  }
+  textarea{resize:vertical;min-height:120px}
+  .btn{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 14px;border-radius:999px;font-weight:600;box-shadow:0 1px 0 rgba(0,0,0,.04)}
+  .btn:hover{background:var(--soft)} .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+  .btn.primary:hover{filter:brightness(.98)} .btn.ghost{background:transparent} .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+  .small{font-size:12px;color:var(--muted)}
+  .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:12px;padding:8px 10px;border:1px dashed var(--line);border-radius:10px;background:#fff}
+
+  .grid{display:grid;gap:18px;grid-template-columns:repeat(1,minmax(0,1fr))}
+  @media(min-width:640px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(min-width:980px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.04)}
+  .accent-bar{position:absolute;inset:0 0 auto 0;height:6px;background:transparent}
+  .thumb{aspect-ratio:16/9;background:#eef0f5;position:relative;display:block}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+  .thumb.contain img{object-fit:contain;background:#eef0f5}
+
+  /* 立ち絵上のツール群：半透明＋ぼかし */
+  .tools{
+    position:absolute;display:flex;gap:6px;z-index:20;pointer-events:auto;
+    background:color-mix(in oklab,#fff 85%,transparent);
+    backdrop-filter:blur(6px);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:4px;
+    box-shadow:0 6px 16px rgba(0,0,0,.12);
+  }
+  .pos-tr{top:8px;right:8px}
+  .pos-br{bottom:8px;right:8px}
+  .pos-tl{top:8px;left:8px}
+  .pos-bl{bottom:8px;left:8px}
+
+  .iconbtn{width:36px;height:36px;border-radius:999px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;cursor:pointer}
+  .iconbtn:hover{background:var(--soft)}
+
+  .card .body{padding:14px}
+  .title{font-size:18px;font-weight:800;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+  .title .dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;vertical-align:baseline;margin-right:.35em;background:transparent;border:1px solid var(--line)}
+  .meta{font-size:12px;color:var(--muted)}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;color:#374151}
+
+  .statgrid{display:grid;gap:10px;margin-top:10px;grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
+  .statbox{padding:6px 8px;background:var(--soft);border-radius:10px;font-size:13px;border:1px solid var(--line)}
+  .statbox span{color:var(--muted);margin-right:6px}
+
+  .switch{display:inline-flex;gap:8px;align-items:center;padding:4px 10px;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:12px;color:#888}
+  .invis{display:none}
+
+  dialog{width:min(980px,92vw);border:1px solid var(--line);border-radius:18px;padding:0;box-shadow:0 30px 60px rgba(0,0,0,.18)}
+  dialog::backdrop{background:rgba(0,0,0,.28)}
+  .modal-head{padding:16px 20px;border-bottom:1px solid var(--line);font-weight:700;display:flex;align-items:center;gap:10px}
+  .modal-body{padding:18px 20px}
+  .modal-foot{padding:16px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+  .cols{display:grid;gap:18px} @media(min-width:860px){.cols{grid-template-columns:280px 1fr}}
+  .rows{display:grid;gap:10px}
+  .preview{background:#eef0f5;border:1px solid var(--line);border-radius:14px;overflow:hidden;aspect-ratio:4/5;display:grid;place-items:center}
+  .preview img{width:100%;height:100%;object-fit:cover} .preview.contain img{object-fit:contain;background:#eef0f5}
+
+  .stats-grid{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}
+  @media(min-width:560px){.stats-grid{grid-template-columns:repeat(3,1fr)}}
+  .stat-item{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center}
+  .skill-item{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;display:grid;grid-template-columns:1fr 120px 34px;gap:8px;align-items:center}
+  .table-like{display:grid;gap:12px}
+  .swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  .swatch{width:28px;height:28px;border-radius:999px;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer}
+  .swatch.sel{outline:3px solid #1113}
+  .color-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap row">
+    <h1>CoC 探索者カードメーカー</h1>
+    <input id="q" class="search" type="text" placeholder="名前・技能・メモで検索" />
+    <label class="switch"><input id="secretToggle" type="checkbox" checked /><span>秘匿モード</span></label>
+    <label class="switch"><input id="fitToggle" type="checkbox" checked /><span>サムネ収める</span></label>
+    <button class="btn" id="shareListBtn" title="閲覧専用の一覧URLを表示">共有URL（一覧）</button>
+    <label class="switch" title="カード上のボタン位置">
+      <span>ボタン位置</span>
+      <select id="toolPosSel">
+        <option value="br">右下（推奨）</option>
+        <option value="tr">右上</option>
+        <option value="tl">左上</option>
+        <option value="bl">左下</option>
+      </select>
+    </label>
+    <button class="btn" id="addBtn">探索者を作る</button>
+    <button class="btn" id="exportBtn">JSONに書き出し</button>
+    <label class="btn ghost" for="importInput">JSON読込</label>
+    <input id="importInput" class="invis" type="file" accept="application/json" />
+    <button class="btn ghost" id="compactBtn">ストレージの最適化</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="list" class="grid" aria-live="polite"></section>
+  <div id="urlBox" class="mono invis"></div>
+</main>
+
+<!-- 編集モーダル -->
+<dialog id="editDlg" aria-labelledby="editTitle">
+  <div class="modal-head" id="editTitle">探索者の編集</div>
+  <div class="modal-body">
+    <div class="cols">
+      <div class="rows">
+        <div class="preview" id="editPreview"><span class="small">画像プレビュー</span></div>
+        <label class="btn" for="imageInput">画像を選ぶ</label>
+        <input id="imageInput" class="invis" type="file" accept="image/*" />
+        <div><label class="small" for="name">名前</label><input id="name" type="text" placeholder="探索者の名前" /></div>
+        <div class="table-like">
+          <div><label class="small" for="gender">性別</label><input id="gender" type="text" placeholder="例: 男性" /></div>
+          <div><label class="small" for="speech">口調</label><input id="speech" type="text" placeholder="例: 〜だよ／〜だね" /></div>
+          <div><label class="small" for="firstPerson">一人称</label><input id="firstPerson" type="text" placeholder="例: 私／俺" /></div>
+          <div><label class="small" for="secondPerson">二人称</label><input id="secondPerson" type="text" placeholder="例: 君／あなた" /></div>
+        </div>
+        <div>
+          <div class="small" style="margin-bottom:6px">イメージカラー（任意）</div>
+          <div id="colorSwatches" class="swatches" aria-label="プリセットカラー"></div>
+          <div class="color-row" style="margin-top:8px">
+            <input id="colorPicker" type="color" value="#000000" title="カスタム色" />
+            <button id="clearColor" class="btn ghost" type="button">選択なしに戻す</button>
+          </div>
+          <div class="small">※ 選択なしの場合は従来の配色で表示します</div>
+        </div>
+      </div>
+      <div>
+        <div class="row" style="gap:8px; margin-bottom:10px">
+          <button class="btn" type="button" data-tab="stats">ステータス</button>
+          <button class="btn" type="button" data-tab="skills">代表技能</button>
+          <button class="btn" type="button" data-tab="notes">メモ</button>
+          <span class="small">（クリックで切替）</span>
+        </div>
+        <section id="tabStats"><div class="stats-grid" id="statsGrid"></div></section>
+        <section id="tabSkills" hidden><div id="skillsWrap" class="rows"></div><button class="btn" id="addSkillBtn" type="button">＋ 行を追加</button></section>
+        <section id="tabNotes" hidden><label class="small" for="notes">メモ</label><textarea id="notes" placeholder="背景・性格・RPメモなど"></textarea></section>
+      </div>
+    </div>
+  </div>
+  <div class="modal-foot"><button class="btn ghost" id="cancelEdit" type="button">キャンセル</button><button class="btn primary" id="saveEdit" type="button">保存</button></div>
+</dialog>
+
+<!-- プロフィールモーダル -->
+<dialog id="viewDlg" aria-labelledby="viewTitle">
+  <div class="modal-head" id="viewHeader">
+    <span id="viewTitle">探索者プロフィール</span>
+    <button class="btn ghost" id="shareOneBtn" type="button" title="この探索者の閲覧URLを表示">🔗 共有URL（この探索者）</button>
+  </div>
+  <div class="modal-body">
+    <div class="cols">
+      <div class="rows">
+        <div class="preview" id="viewPreview"></div>
+        <div>
+          <div id="viewName" style="font-size:20px; font-weight:800"></div>
+          <div class="small" id="viewMeta"></div>
+          <div style="margin-top:6px" id="viewPronouns"></div>
+        </div>
+      </div>
+      <div>
+        <div class="row" style="gap:8px; margin-bottom:10px">
+          <button class="btn" type="button" data-vtab="v-profile">プロフィール</button>
+          <button class="btn" type="button" data-vtab="v-stats">ステータス</button>
+          <button class="btn" type="button" data-vtab="v-skills">技能</button>
+        </div>
+        <section id="vProfile"></section>
+        <section id="vStats" hidden class="stats-grid"></section>
+        <section id="vSkills" hidden class="rows"></section>
+      </div>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn" id="editFromView" type="button">編集</button>
+    <button class="btn primary" id="closeView" type="button">閉じる</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  /* GitHub Pages base for share URL */
+  const PAGES_BASE = "https://tukimi.github.io";
+
+  /* Storage & IndexedDB */
+  const STORAGE_KEYS=["coc-investigators-html-v3","coc-investigators-html-v2","coc-investigators-html-v1","coc-investigators-v1"];
+  const CURRENT_KEY=STORAGE_KEYS[0];
+  const DB_NAME="cocCardsDB", DB_VERSION=1, STORE="images";
+  let dbPromise=null;
+  function openDB(){ if(dbPromise) return dbPromise; dbPromise=new Promise((res,rej)=>{ const req=indexedDB.open(DB_NAME,DB_VERSION);
+    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE)};
+    req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); return dbPromise; }
+  async function idbSet(key,blob){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,"readwrite"); tx.objectStore(STORE).put(blob,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+  async function idbGet(key){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,"readonly"); const rq=tx.objectStore(STORE).get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); }); }
+  async function idbDelete(key){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,"readwrite"); tx.objectStore(STORE).delete(key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+
+  /* Utils */
+  const $=sel=>document.querySelector(sel);
+  const el=(tag,props={},...kids)=>{ const n=document.createElement(tag); Object.entries(props).forEach(([k,v])=>{
+    if(k==="class") n.className=v; else if(k==="html") n.innerHTML=v;
+    else if(k.startsWith("on") && typeof v==="function") n.addEventListener(k.slice(2),v);
+    else if(v!==undefined) n.setAttribute(k,v); }); kids.forEach(k=>n.append(k)); return n; };
+  const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
+  const hexToRgb=hex=>{ if(!hex) return null; const s=hex.replace('#',''); const v=s.length===3? s.split('').map(x=>x+x).join(''):s; const num=parseInt(v,16); return {r:(num>>16)&255,g:(num>>8)&255,b:num&255}; };
+  const rgba=(hex,a)=>{ const c=hexToRgb(hex); if(!c) return null; return `rgba(${c.r},${c.g},${c.b},${a})`; };
+  const PRESET_COLORS=["#EF4444","#F59E0B","#10B981","#22C55E","#06B6D4","#3B82F6","#6366F1","#A855F7","#EC4899","#F97316","#84CC16","#14B8A6"];
+  const DEFAULT_STATS=[{key:"STR",label:"STR"},{key:"CON",label:"CON"},{key:"POW",label:"POW"},{key:"DEX",label:"DEX"},{key:"APP",label:"APP"},{key:"SIZ",label:"SIZ"},{key:"INT",label:"INT"},{key:"EDU",label:"EDU"},{key:"HP",label:"HP"},{key:"MP",label:"MP"},{key:"SAN",label:"SAN"}];
+
+  const sample=()=>({id:uid(),name:"サンプル探索者",gender:"男性",firstPerson:"俺",secondPerson:"あなた",speech:"〜だよ／〜だね",imageKey:"",color:"",notes:"ここにメモ。",stats:DEFAULT_STATS.map(s=>({...s,value:"",secret:false})),skills:[{name:"目星",value:"70"}],createdAt:Date.now(),updatedAt:Date.now()});
+  function escapeHtml(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;","\"":"&quot;","'":"&#39;"}[m]))}
+
+  /* State */
+  let list=[],secretMode=true,fitContain=true,viewing=null,editing=null;
+  let isViewOpen=false,currentVTab="v-profile",readOnly=false;
+  const TOOL_POS_KEY="coc_cards_toolpos_v1";
+
+  /* Load / Save / Migrate */
+  function readKey(key){ try{const raw=localStorage.getItem(key); if(!raw) return null; const data=JSON.parse(raw); return Array.isArray(data)?data:null;}catch{return null;} }
+  function normalizeEntry(v){ v=v||{}; v.id||=uid(); v.name||=""; v.gender||=""; v.firstPerson||=""; v.secondPerson||=""; v.speech||=""; v.color||=""; v.notes||="";
+    v.imageKey=v.imageKey||""; if(v.image && typeof v.image==="string" && v.image.startsWith("data:image/")) v._legacyDataUrl=v.image; v.image=undefined;
+    const byKey=Object.fromEntries((v.stats||[]).map(s=>[(s.key||s.label),s])); v.stats=DEFAULT_STATS.map(s=>({key:s.key,label:s.label,value:(byKey[s.key]?.value??""),secret:!!byKey[s.key]?.secret}));
+    v.skills=Array.isArray(v.skills)? v.skills.map(s=>({name:s.name||"",value:s.value||""})):[];
+    v.createdAt||=Date.now(); v.updatedAt||=Date.now(); return v; }
+  function dataURLToBlob(dataURL){ const [h,b64]=dataURL.split(","); const mime=h.match(/data:(.*?);base64/)[1]||"image/png"; const bin=atob(b64); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return new Blob([u8],{type:mime}); }
+  async function migrateImagesIfNeeded(items){ for(const it of items){ if(it._legacyDataUrl){ const key="img:"+it.id; await idbSet(key, dataURLToBlob(it._legacyDataUrl)); it.imageKey=key; delete it._legacyDataUrl; } } }
+
+  async function load(){
+    let found=null,used=null;
+    for(const k of STORAGE_KEYS){ const cand=readKey(k); if(cand && cand.length){ found=cand; used=k; break; } }
+    if(!found){ list=[sample()]; localStorage.setItem(CURRENT_KEY, JSON.stringify(list)); return; }
+    list=found.map(normalizeEntry); await migrateImagesIfNeeded(list);
+    if(used!==CURRENT_KEY){ localStorage.setItem(CURRENT_KEY, JSON.stringify(list)); }
+  }
+  function save(){ if(!readOnly) localStorage.setItem(CURRENT_KEY, JSON.stringify(list)); }
+
+  /* Share URL */
+  const buildListURL = () => `${PAGES_BASE}/#/list`;
+  const buildProfileURL = (id) => `${PAGES_BASE}/#/view/${encodeURIComponent(id)}`;
+  function showURL(url){ const box=$("#urlBox"); box.textContent=url; box.classList.remove("invis"); navigator.clipboard?.writeText(url).catch(()=>{}); setTimeout(()=>box.classList.add("invis"),8000); }
+
+  /* Tool position */
+  function getToolPos(){ return localStorage.getItem(TOOL_POS_KEY) || "br"; }
+  function setToolPos(v){ localStorage.setItem(TOOL_POS_KEY, v); }
+  function toolsPosClass(v){ return v==="tr"?"pos-tr":v==="tl"?"pos-tl":v==="bl"?"pos-bl":"pos-br"; }
+
+  /* List render */
+  const listBox=$("#list"); let objectURLs=new Map(); function revokeAllURLs(){ for(const u of objectURLs.values()) URL.revokeObjectURL(u); objectURLs.clear(); }
+
+  async function renderList(){
+    const q=$("#q").value.trim().toLowerCase(); listBox.innerHTML=""; revokeAllURLs();
+    const filtered=!q? list : list.filter(v=>{ const blob=[v.name,v.gender,v.firstPerson,v.secondPerson,v.speech,v.notes,...(v.skills||[]).map(s=>`${s.name}:${s.value}`)].filter(Boolean).join("\n").toLowerCase(); return blob.includes(q); });
+    if(!filtered.length){ listBox.append(el("div",{class:"small",html:"該当する探索者がいません。右上の「探索者を作る」から登録できます。"})); return; }
+
+    const tpos = getToolPos();
+    for(const item of filtered){
+      const card=el("article",{class:"card"});
+      const bar=el("div",{class:"accent-bar"}); if(item.color) bar.style.background=item.color; card.append(bar);
+
+      const th=el("div",{class:"thumb"}); if(fitContain) th.classList.add("contain");
+      th.addEventListener("click",(ev)=>{ if(ev.target.closest(".tools")) return; openView(item.id); });
+
+      const img=el("img",{alt:item.name||"preview"});
+      if(item.imageKey){ const blob=await idbGet(item.imageKey); if(blob){ const url=URL.createObjectURL(blob); objectURLs.set(item.imageKey,url); img.src=url; } }
+      th.append(item.imageKey? img : el("div",{class:"small",html:"画像なし"}));
+
+      const tools=el("div",{class:`tools ${toolsPosClass(tpos)}`});
+      tools.append(iconBtn("👁","プロフィール",(e)=>{e.preventDefault();e.stopPropagation();openView(item.id)}));
+      tools.append(iconBtn("🔗","共有URL",(e)=>{e.preventDefault();e.stopPropagation();showURL(buildProfileURL(item.id));}));
+      if(!readOnly){
+        tools.append(iconBtn("✏️","編集",(e)=>{e.preventDefault();e.stopPropagation();openEdit(item.id)}));
+        tools.append(iconBtn("🗑","削除",(e)=>{e.preventDefault();e.stopPropagation();delItem(item.id)}));
+      }
+      th.append(tools);
+
+      const body=el("div",{class:"body"});
+      const title=el("div",{class:"title"}); const dot=el("span",{class:"dot"});
+      if(item.color){ dot.style.background=item.color; dot.style.borderColor=rgba(item.color,.6); title.style.color=item.color; }
+      title.append(dot, document.createTextNode(item.name||"(無名の探索者)")); body.append(title);
+      const meta=[item.gender,item.firstPerson?`一人称:${item.firstPerson}`:"",item.secondPerson?`二人称:${item.secondPerson}`:""].filter(Boolean).join(" ・ ");
+      body.append(el("div",{class:"meta",html:meta}));
+      const badges=el("div",{class:"badges"}); (item.skills||[]).filter(s=>s.name).slice(0,4).forEach(s=>badges.append(el("span",{class:"chip",html:`${s.name}${s.value?` ${s.value}`:""}`})));
+      body.append(badges); /* ← 余計な ) を削除済み */
+
+      const statgrid=el("div",{class:"statgrid"});
+      (item.stats||[]).forEach(st=>statgrid.append(el("div",{class:"statbox",html:`<span>${st.label}</span>${st.secret && secretMode?"秘":(st.value||"-")}`})));
+      body.append(statgrid);
+
+      card.append(th,body); listBox.append(card);
+    }
+  }
+  const iconBtn=(txt,title,onClick)=>{ const b=el("button",{class:"iconbtn",title,type:"button","aria-label":title}); b.textContent=txt; b.addEventListener("click",onClick); return b; };
+
+  /* Editor */
+  const eDlg=$("#editDlg"), vDlg=$("#viewDlg");
+  const statsGrid=$("#statsGrid"), skillsWrap=$("#skillsWrap");
+  const input={ image:$("#imageInput"), preview:$("#editPreview"), name:$("#name"), gender:$("#gender"), first:$("#firstPerson"), second:$("#secondPerson"), speech:$("#speech"), notes:$("#notes"), colorPicker:$("#colorPicker"), clearColor:$("#clearColor"), swatches:$("#colorSwatches") };
+
+  PRESET_COLORS.forEach(c=>{ const s=el("button",{class:"swatch",type:"button",title:c}); s.style.background=c; s.addEventListener("click",()=>{editing.color=c; paintSwatches(); paintPreviewColor();}); input.swatches.append(s); });
+  const paintSwatches=()=>{ input.swatches.querySelectorAll(".swatch").forEach((n,i)=>{ const c=PRESET_COLORS[i]; n.classList.toggle("sel", !!(editing?.color && editing.color.toLowerCase()===c.toLowerCase())); }); };
+  const paintPreviewColor=()=>{ input.colorPicker.value = editing?.color || "#000000"; };
+
+  async function openEdit(id){
+    if(readOnly) return;
+    editing = id ? structuredClone(list.find(v=>v.id===id)) : { id:uid(), name:"", gender:"", firstPerson:"", secondPerson:"", speech:"", imageKey:"", color:"", notes:"", stats:DEFAULT_STATS.map(s=>({...s,value:"",secret:false})), skills:[{name:"",value:""}], createdAt:Date.now(), updatedAt:Date.now() };
+    await fillEditForm(); showTab("stats"); eDlg.showModal();
+  }
+  async function fillEditForm(){
+    input.preview.classList.toggle("contain",fitContain);
+    if(editing.imageKey){ const blob=await idbGet(editing.imageKey); if(blob){ const url=URL.createObjectURL(blob); input.preview.innerHTML=`<img alt="preview" src="${url}">`; setTimeout(()=>URL.revokeObjectURL(url),0);} else input.preview.innerHTML=`<span class="small">画像なし</span>`; }
+    else input.preview.innerHTML=`<span class="small">画像プレビュー</span>`;
+    input.name.value=editing.name||""; input.gender.value=editing.gender||""; input.first.value=editing.firstPerson||""; input.second.value=editing.secondPerson||""; input.speech.value=editing.speech||""; input.notes.value=editing.notes||"";
+    paintPreviewColor(); paintSwatches();
+    statsGrid.innerHTML=""; editing.stats.forEach((st,i)=>{ const row=el("div",{class:"stat-item"}); row.append(
+      el("div",{class:"small",html:st.label}),
+      (()=>{ const v=el("input",{type:"text",value:st.value||"",placeholder:"数値"}); v.addEventListener("input",()=>editing.stats[i].value=v.value); return v; })(),
+      (()=>{
+        const lab=el("label",{class:"small",html:`<input type="checkbox" ${st.secret?"checked":""}> 秘匿`});
+        lab.querySelector("input").addEventListener("change",(e)=>editing.stats[i].secret=e.target.checked); return lab; })()
+    ); statsGrid.append(row); });
+    rebuildSkills();
+  }
+  function rebuildSkills(){
+    skillsWrap.innerHTML="";
+    (editing.skills||[]).forEach((sk,idx)=>{
+      const row=el("div",{class:"skill-item"});
+      const n=el("input",{type:"text",value:sk.name||"",placeholder:"技能名（例：目星）"});
+      const v=el("input",{type:"text",value:sk.value||"",placeholder:"値（例：75）"});
+      const del=el("button",{class:"btn danger",type:"button",onClick:(e)=>{e.preventDefault();e.stopPropagation();editing.skills.splice(idx,1);rebuildSkills();}},"✕");
+      n.addEventListener("input",()=>editing.skills[idx].name=n.value);
+      v.addEventListener("input",()=>editing.skills[idx].value=v.value);
+      row.append(n,v,del); skillsWrap.append(row);
+    });
+  }
+  async function saveEdit(){
+    if(readOnly) return;
+    const now=Date.now();
+    Object.assign(editing,{ name:input.name.value.trim(), gender:input.gender.value.trim(), firstPerson:input.first.value.trim(), secondPerson:input.second.value.trim(), speech:input.speech.value.trim(), notes:input.notes.value, updatedAt:now });
+    const exists=list.some(v=>v.id===editing.id);
+    list = exists ? list.map(v=>v.id===editing.id?editing:v) : [editing, ...list];
+    save(); await renderList(); eDlg.close();
+  }
+  async function delItem(id){
+    if(readOnly) return;
+    const it=list.find(v=>v.id===id);
+    if(!confirm("この探索者を削除しますか？")) return;
+    if(it?.imageKey) await idbDelete(it.imageKey);
+    list=list.filter(v=>v.id!==id); save(); await renderList();
+  }
+
+  /* Viewer */
+  async function openView(id){
+    viewing=structuredClone(list.find(v=>v.id===id)); if(!viewing) return;
+    const header=$("#viewHeader"); header.style.background=viewing.color||"transparent"; header.style.color=viewing.color?"#fff":"inherit";
+    const vp=$("#viewPreview"); vp.classList.toggle("contain",fitContain);
+    if(viewing.imageKey){ const blob=await idbGet(viewing.imageKey); if(blob){ const url=URL.createObjectURL(blob); vp.innerHTML=`<img alt="${viewing.name}" src="${url}">`; setTimeout(()=>URL.revokeObjectURL(url),0);} else vp.innerHTML=`<div class="small">画像なし</div>`; }
+    else vp.innerHTML=`<div class="small">画像なし</div>`;
+    const nameEl=$("#viewName"); nameEl.textContent=viewing.name||"(無名)"; nameEl.style.color=viewing.color||"";
+    $("#viewMeta").textContent=[viewing.gender,viewing.speech].filter(Boolean).join(" ・ ");
+    const chips=[]; if(viewing.firstPerson) chips.push(`<span class="chip">一人称 ${escapeHtml(viewing.firstPerson)}</span>`); if(viewing.secondPerson) chips.push(`<span class="chip">二人称 ${escapeHtml(viewing.secondPerson)}</span>`); $("#viewPronouns").innerHTML=chips.join(" ");
+
+    currentVTab="v-profile"; renderVProfile(); clearVStats(); clearVSkills(); showVTab(currentVTab);
+    isViewOpen=true; $("#viewDlg").showModal();
+    $("#editFromView").style.display = readOnly ? "none" : "";
+  }
+  function renderVProfile(){ $("#vProfile").textContent=(viewing?.notes||"（メモはありません）"); }
+  function renderVStats(){ const box=$("#vStats"); box.innerHTML=""; (viewing?.stats||[]).forEach(st=>{ const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">${st.label}${st.secret?"（秘）":""}</div><div style="font-weight:800">${st.secret && secretMode?"秘":(st.value||"-")}</div><div></div>`; box.append(row); }); }
+  function renderVSkills(){ const box=$("#vSkills"); box.innerHTML=""; const skills=(viewing?.skills||[]).filter(s=>s.name); if(!skills.length){ box.append(el("div",{class:"small",html:"代表技能は登録されていません。"})); return; } const grid=el("div",{style:"display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"}); skills.forEach(s=>{ const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">技能</div><div><strong>${escapeHtml(s.name)}</strong></div><div class="small">${escapeHtml(s.value||"")}</div>`; grid.append(row); }); box.append(grid); }
+  function clearVStats(){ $("#vStats").innerHTML=""; } function clearVSkills(){ $("#vSkills").innerHTML=""; }
+  document.querySelectorAll('[data-vtab]').forEach(btn=>btn.addEventListener("click",()=>{ const name=btn.dataset.vtab;
+    if(name==="v-profile"){ renderVProfile(); clearVStats(); clearVSkills(); }
+    if(name==="v-stats"){ clearVSkills(); $("#vProfile").textContent=""; renderVStats(); }
+    if(name==="v-skills"){ clearVStats(); $("#vProfile").textContent=""; renderVSkills(); }
+    currentVTab=name; showVTab(name);
+  }));
+  function showVTab(name){ $("#vProfile").hidden=name!=="v-profile"; $("#vStats").hidden=name!=="v-stats"; $("#vSkills").hidden=name!=="v-skills"; }
+
+  /* Routing（共有URL用） */
+  function applyReadOnlyUI(){ ["#addBtn","#exportBtn","#importInput","#compactBtn","#editFromView"].forEach(sel=>{ const n=$(sel); if(n) n.style.display=readOnly?"none":""; }); }
+  async function handleRoute(){
+    const hash=location.hash||""; const mV=hash.match(/^#\/view\/(.+)$/), mL=hash.match(/^#\/list$/);
+    if(mV){ readOnly=true; applyReadOnlyUI(); await renderList(); openView(decodeURIComponent(mV[1])); return; }
+    if(mL){ readOnly=true; applyReadOnlyUI(); await renderList(); return; }
+    readOnly=false; applyReadOnlyUI(); await renderList();
+  }
+  window.addEventListener("hashchange", handleRoute);
+
+  /* Events */
+  const toolSel=$("#toolPosSel"); toolSel.value=(localStorage.getItem(TOOL_POS_KEY)||"br");
+  toolSel.addEventListener("change", ()=>{ setToolPos(toolSel.value); renderList(); if(isViewOpen && viewing){ openView(viewing.id); } });
+
+  $("#shareListBtn").addEventListener("click", ()=> showURL(buildListURL()));
+  $("#shareOneBtn").addEventListener("click", ()=>{ if(!viewing) return; showURL(buildProfileURL(viewing.id)); });
+
+  $("#addBtn").addEventListener("click",()=>openEdit(null));
+  $("#saveEdit").addEventListener("click",saveEdit);
+  $("#cancelEdit").addEventListener("click",()=>eDlg.close());
+  $("#q").addEventListener("input",()=>renderList());
+
+  $("#secretToggle").addEventListener("change",(e)=>{ secretMode=e.target.checked; renderList(); if(isViewOpen){ if(currentVTab==="v-profile")renderVProfile(); if(currentVTab==="v-stats")renderVStats(); if(currentVTab==="v-skills")renderVSkills(); showVTab(currentVTab);} });
+  $("#fitToggle").addEventListener("change",(e)=>{ fitContain=e.target.checked; renderList(); if(isViewOpen){ openView(viewing.id); }});
+
+  $("#exportBtn").addEventListener("click",()=>{ if(readOnly) return; const blob=new Blob([JSON.stringify(list,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="investigators_meta.json"; a.click(); URL.revokeObjectURL(url); });
+  $("#importInput").addEventListener("change",async(ev)=>{ if(readOnly) return; const f=ev.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=async()=>{ try{ const data=JSON.parse(r.result); if(Array.isArray(data)){ list=data.map(normalizeEntry); await migrateImagesIfNeeded(list); save(); await renderList(); } else alert("JSON形式が正しくありません。"); } catch{ alert("JSONの読み込みに失敗しました。"); } }; r.readAsText(f); ev.target.value=""; });
+  $("#compactBtn").addEventListener("click",async()=>{ if(readOnly) return; for(const it of list){ if(it._legacyDataUrl){ const key="img:"+it.id; await idbSet(key,dataURLToBlob(it._legacyDataUrl)); it.imageKey=key; delete it._legacyDataUrl; } } save(); alert("最適化しました。（画像はIndexedDBへ退避）"); await renderList(); });
+
+  $("#closeView").addEventListener("click",()=>{ isViewOpen=false; viewing=null; $("#viewDlg").close(); });
+  $("#viewDlg").addEventListener("close",()=>{ isViewOpen=false; viewing=null; });
+
+  (async()=>{ await load(); await handleRoute(); })();
+})();
+</script>
+</body>
+</html>
