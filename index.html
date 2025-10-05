@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CoC 探索者カードメーカー</title>
+<title>CoC 探索者カードメーカー（画像即時プレビュー・安定版）</title>
 <style>
   :root{--bg:#f6f7fb;--panel:#fff;--ink:#17181c;--muted:#6b7280;--line:#e6e7ee;--accent:#4f46e5;--accent-ink:#fff;--soft:#f3f4f6;--danger:#ef4444;--radius:16px}
   *{box-sizing:border-box} html,body{height:100%}
@@ -39,7 +39,6 @@
   .thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
   .thumb.contain img{object-fit:contain;background:#eef0f5}
 
-  /* 立ち絵上のツール群：半透明＋ぼかし */
   .tools{
     position:absolute;display:flex;gap:6px;z-index:20;pointer-events:auto;
     background:color-mix(in oklab,#fff 85%,transparent);
@@ -237,8 +236,9 @@
 
   /* 一覧用URLの解放マップ */
   const listObjectURLs=new Map();
+  function revokeListURLs(){ for(const u of listObjectURLs.values()) URL.revokeObjectURL(u); listObjectURLs.clear(); }
 
-  /* 編集/閲覧プレビュー用：現在表示中のURLを保持して閉じる時にrevoke */
+  /* 編集/閲覧プレビュー用のURL保持 */
   let editPreviewURL=null;
   let viewPreviewURL=null;
 
@@ -273,7 +273,6 @@
 
   /* List render */
   const listBox=$("#list");
-  function revokeListURLs(){ for(const u of listObjectURLs.values()) URL.revokeObjectURL(u); listObjectURLs.clear(); }
 
   async function renderList(){
     const q=$("#q").value.trim().toLowerCase(); listBox.innerHTML=""; revokeListURLs();
@@ -290,8 +289,10 @@
 
       const img=el("img",{alt:item.name||"preview"});
       if(item.imageKey){
-        const blob=await idbGet(item.imageKey);
-        if(blob){ const url=URL.createObjectURL(blob); listObjectURLs.set(item.imageKey,url); img.src=url; }
+        try{
+          const blob=await idbGet(item.imageKey);
+          if(blob){ const url=URL.createObjectURL(blob); listObjectURLs.set(item.imageKey,url); img.src=url; }
+        }catch(e){ console.error("IDB get failed", e); }
       }
       th.append(item.imageKey? img : el("div",{class:"small",html:"画像なし"}));
 
@@ -330,7 +331,6 @@
   const paintSwatches=()=>{ input.swatches.querySelectorAll(".swatch").forEach((n,i)=>{ const c=PRESET_COLORS[i]; n.classList.toggle("sel", !!(editing?.color && editing.color.toLowerCase()===c.toLowerCase())); }); };
   const paintPreviewColor=()=>{ input.colorPicker.value = editing?.color || "#000000"; };
 
-  /* Editor tabs */
   document.querySelectorAll('[data-tab]').forEach(btn=>{
     btn.addEventListener('click',()=>showTab(btn.dataset.tab));
   });
@@ -346,14 +346,15 @@
     await fillEditForm(); showTab("stats"); eDlg.showModal();
   }
   async function fillEditForm(){
-    // 編集プレビューURLを作り直す（古いものは解放）
     if (editPreviewURL) { URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; }
     input.preview.classList.toggle("contain",fitContain);
     if(editing.imageKey){
-      const blob=await idbGet(editing.imageKey);
-      if(blob){ editPreviewURL = URL.createObjectURL(blob); input.preview.innerHTML=`<img alt="preview" src="${editPreviewURL}">`; }
-      else input.preview.innerHTML=`<span class="small">画像なし</span>`;
-    } else {
+      try{
+        const blob=await idbGet(editing.imageKey);
+        if(blob){ editPreviewURL = URL.createObjectURL(blob); input.preview.innerHTML=`<img alt="preview" src="${editPreviewURL}">`; }
+        else input.preview.innerHTML=`<span class="small">画像なし</span>`;
+      }catch(e){ console.error(e); input.preview.innerHTML=`<span class="small">画像なし</span>`; }
+    }else{
       input.preview.innerHTML=`<span class="small">画像プレビュー</span>`;
     }
 
@@ -381,6 +382,30 @@
       row.append(n,v,del); skillsWrap.append(row);
     });
   }
+
+  // 画像選択：即時プレビュー → IndexedDB保存（エラーハンドリング付き）
+  $("#imageInput").addEventListener("change", async (e)=>{
+    if(readOnly) return;
+    const f = e.target.files?.[0]; if(!f) return;
+    // 即時プレビュー
+    try{
+      if (editPreviewURL) { URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; }
+      editPreviewURL = URL.createObjectURL(f);
+      $("#editPreview").innerHTML = `<img alt="preview" src="${editPreviewURL}">`;
+    }catch(err){ console.error("preview failed:",err); }
+
+    // IndexedDB保存（非同期）
+    try{
+      const key = "img:" + (editing?.id || uid());
+      await idbSet(key, f);
+      if (!editing.id) editing.id = key.slice(4);
+      editing.imageKey = key;
+    }catch(err){
+      console.error("idbSet failed:", err);
+      alert("画像の保存に失敗しました。別の画像やブラウザ設定をご確認ください。");
+    }
+  });
+
   async function saveEdit(){
     if(readOnly) return;
     const now=Date.now();
@@ -397,29 +422,22 @@
     list=list.filter(v=>v.id!==id); save(); await renderList();
   }
 
-  /* 画像選択：IndexedDBへ保存し、プレビューURLを新規発行 */
-  $("#imageInput").addEventListener("change", async (e)=>{
-    if(readOnly) return;
-    const f = e.target.files?.[0]; if(!f) return;
-    const key = "img:"+ (editing?.id || uid());
-    await idbSet(key, f);
-    if (!editing.id) editing.id = key.slice(4);
-    editing.imageKey = key;
-    await fillEditForm(); // 新しいプレビューURLを発行して表示
-  });
+  // 編集ダイアログを閉じる時にプレビューURLを解放
+  $("#cancelEdit").addEventListener("click", ()=>{ if(editPreviewURL){ URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; } eDlg.close(); });
 
   /* Viewer */
   async function openView(id){
     viewing=structuredClone(list.find(v=>v.id===id)); if(!viewing) return;
     const header=$("#viewHeader"); header.style.background=viewing.color||"transparent"; header.style.color=viewing.color?"#fff":"inherit";
 
-    // 既存のviewプレビューURLを解放してから再発行
     if (viewPreviewURL) { URL.revokeObjectURL(viewPreviewURL); viewPreviewURL=null; }
     const vp=$("#viewPreview"); vp.classList.toggle("contain",fitContain);
     if(viewing.imageKey){
-      const blob=await idbGet(viewing.imageKey);
-      if(blob){ viewPreviewURL = URL.createObjectURL(blob); vp.innerHTML=`<img alt="${viewing.name}" src="${viewPreviewURL}">`; }
-      else vp.innerHTML=`<div class="small">画像なし</div>`;
+      try{
+        const blob=await idbGet(viewing.imageKey);
+        if(blob){ viewPreviewURL = URL.createObjectURL(blob); vp.innerHTML=`<img alt="${viewing.name}" src="${viewPreviewURL}">`; }
+        else vp.innerHTML=`<div class="small">画像なし</div>`;
+      }catch(e){ console.error(e); vp.innerHTML=`<div class="small">画像なし</div>`; }
     } else {
       vp.innerHTML=`<div class="small">画像なし</div>`;
     }
@@ -433,22 +451,23 @@
     $("#editFromView").style.display = readOnly ? "none" : "";
 
     // 編集ボタンの安定ハンドラ
-    const editBtn = $("#editFromView");
-    const cloned = editBtn.cloneNode(true);
-    editBtn.replaceWith(cloned);
-    cloned.addEventListener("click",(e)=>{
-      e.preventDefault(); e.stopPropagation();
+    const editBtn = $("#editFromView"); const cloned = editBtn.cloneNode(true); editBtn.replaceWith(cloned);
+    cloned.addEventListener("click",(ev)=>{
+      ev.preventDefault(); ev.stopPropagation();
       if(!viewing){ alert("表示中の探索者が見つかりません"); return; }
       if(readOnly){ alert("閲覧専用URLでは編集できません"); return; }
-      try{
-        isViewOpen=false; $("#viewDlg").close(); openEdit(viewing.id);
-      }catch(err){ console.error(err); alert("編集画面の起動に失敗しました"); }
+      try{ isViewOpen=false; $("#viewDlg").close(); openEdit(viewing.id); }
+      catch(err){ console.error(err); alert("編集画面の起動に失敗しました"); }
     });
   }
   function renderVProfile(){ $("#vProfile").textContent=(viewing?.notes||"（メモはありません）"); }
   function renderVStats(){ const box=$("#vStats"); box.innerHTML=""; (viewing?.stats||[]).forEach(st=>{ const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">${st.label}${st.secret?"（秘）":""}</div><div style="font-weight:800">${st.secret && secretMode?"秘":(st.value||"-")}</div><div></div>`; box.append(row); }); }
   function renderVSkills(){ const box=$("#vSkills"); box.innerHTML=""; const skills=(viewing?.skills||[]).filter(s=>s.name); if(!skills.length){ box.append(el("div",{class:"small",html:"代表技能は登録されていません。"})); return; } const grid=el("div",{style:"display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"}); skills.forEach(s=>{ const row=el("div",{class:"stat-item"}); row.innerHTML=`<div class="small">技能</div><div><strong>${escapeHtml(s.name)}</strong></div><div class="small">${escapeHtml(s.value||"")}</div>`; grid.append(row); }); box.append(grid); }
   function clearVStats(){ $("#vStats").innerHTML=""; } function clearVSkills(){ $("#vSkills").innerHTML=""; }
+
+  // 閉じるときプレビューURL解放
+  $("#closeView").addEventListener("click",()=>{ isViewOpen=false; viewing=null; if(viewPreviewURL){ URL.revokeObjectURL(viewPreviewURL); viewPreviewURL=null; } $("#viewDlg").close(); });
+  $("#viewDlg").addEventListener("close",()=>{ isViewOpen=false; viewing=null; if(viewPreviewURL){ URL.revokeObjectURL(viewPreviewURL); viewPreviewURL=null; } });
 
   /* Routing（共有URL用） */
   function applyReadOnlyUI(){ ["#addBtn","#exportBtn","#importInput","#compactBtn","#editFromView"].forEach(sel=>{ const n=$(sel); if(n) n.style.display=readOnly?"none":""; }); }
@@ -469,11 +488,7 @@
 
   $("#addBtn").addEventListener("click",()=>openEdit(null));
   $("#saveEdit").addEventListener("click",saveEdit);
-  $("#cancelEdit").addEventListener("click",()=>{
-    // 編集ダイアログを閉じるとき、プレビューURLを解放
-    if (editPreviewURL){ URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; }
-    eDlg.close();
-  });
+  $("#cancelEdit").addEventListener("click",()=>{ if(editPreviewURL){ URL.revokeObjectURL(editPreviewURL); editPreviewURL=null; } eDlg.close(); });
   $("#q").addEventListener("input",()=>renderList());
 
   $("#secretToggle").addEventListener("change",(e)=>{ secretMode=e.target.checked; renderList(); if(isViewOpen){ if(currentVTab==="v-profile")renderVProfile(); if(currentVTab==="v-stats")renderVStats(); if(currentVTab==="v-skills")renderVSkills(); showVTab(currentVTab);} });
@@ -482,9 +497,6 @@
   $("#exportBtn").addEventListener("click",()=>{ if(readOnly) return; const blob=new Blob([JSON.stringify(list,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="investigators_meta.json"; a.click(); URL.revokeObjectURL(url); });
   $("#importInput").addEventListener("change",async(ev)=>{ if(readOnly) return; const f=ev.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=async()=>{ try{ const data=JSON.parse(r.result); if(Array.isArray(data)){ list=data.map(normalizeEntry); await migrateImagesIfNeeded(list); save(); await renderList(); } else alert("JSON形式が正しくありません。"); } catch{ alert("JSONの読み込みに失敗しました。"); } }; r.readAsText(f); ev.target.value=""; });
   $("#compactBtn").addEventListener("click",async()=>{ if(readOnly) return; for(const it of list){ if(it._legacyDataUrl){ const key="img:"+it.id; await idbSet(key,dataURLToBlob(it._legacyDataUrl)); it.imageKey=key; delete it._legacyDataUrl; } } save(); alert("最適化しました。（画像はIndexedDBへ退避）"); await renderList(); });
-
-  $("#closeView").addEventListener("click",()=>{ isViewOpen=false; viewing=null; if(viewPreviewURL){ URL.revokeObjectURL(viewPreviewURL); viewPreviewURL=null; } $("#viewDlg").close(); });
-  $("#viewDlg").addEventListener("close",()=>{ isViewOpen=false; viewing=null; if(viewPreviewURL){ URL.revokeObjectURL(viewPreviewURL); viewPreviewURL=null; } });
 
   (async()=>{ await load(); await handleRoute(); })();
 })();
